@@ -1,0 +1,110 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+body {
+  font-family: "Tajawal", sans-serif;
+  direction: rtl;
+  margin: 0;
+  padding: 0;
+}
+
+@theme {
+  --white: #ffffff;
+  --font-family: "Tajawal", "sans-serif";
+  --primary-300: #ce1432;
+  --primary-400: #a70a25;
+  --silver: #000000;
+  --black-DEFAULT: #000000;
+  --black-200: #6d6e70;
+  --black-300: #231f20;
+  --error: #f75555;
+}
+
+:root {
+  /* Legacy variable names for use with var() in arbitrary values */
+  --primary-200: #f5e6e8;
+  --primary-300: #ce1432;
+  --primary-400: #a70a25;
+  --primary: #ce1432; /* Alias for primary-300 */
+  --silver: #000000;
+  --black-DEFAULT: #000000;
+  --black-200: #6d6e70;
+  --black-300: #231f20;
+  --error: #f75555;
+  --white: #ffffff;
+}
+
+/* Suppress hydration warnings for browser extensions */
+[data-np-mark],
+[data-lpignore],
+[data-1p-ignore],
+[data-lastpass-ignore] {
+  /* These attributes are added by password managers and can cause hydration mismatches */
+}
+
+/* Ensure consistent input styling */
+input[type="text"],
+input[type="password"],
+input[type="email"] {
+  /* Reset any browser extension modifications */
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  border-radius: 50px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #999999;
+  border-radius: 50px;
+}
+
+::-webkit-scrollbar-track {
+  background-color: #cecece;
+}
+
+.drop::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  background-color: #111;
+  opacity: 0.5;
+  width: 100%;
+  height: 100%;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--primary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary) transparent; /* primary thumb, transparent track */
+}
+
+/* Utility: hide scrollbars while preserving scrollability */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none !important; /* Firefox */
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  width: 0px;
+  height: 0px;
+  display: none; /* Chrome, Safari and Opera */
+}

@@ -1,0 +1,339 @@
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { orderSchema, type OrderSchemaType } from "@/lib/schema";
+import { Input } from "@/components/base/input";
+import { Button } from "@/components/base/button";
+import { useOrder, useUpdateOrder } from "@/hook/useOrder";
+import { Icons } from "@/lib/icons";
+import Table, { type Column } from "@/components/table/table";
+import { quantityTypes } from "@/constant/quantity-types";
+
+export type EditOrderProp = {
+  id: string;
+  onClose: () => void;
+  onAdded: () => void;
+};
+
+const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
+  const [products, setProducts] = useState<
+    Array<{
+      id: number;
+      quantity: number;
+      notes: string;
+      price: number;
+      productName: string;
+    }>
+  >([]);
+
+  const {
+    data: orderData,
+    isLoading: isLoadingOrder,
+    error: orderError,
+    refetch: refetchOrder,
+  } = useOrder(Number(id));
+  const updateOrderMutation = useUpdateOrder();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+    watch,
+  } = useForm<OrderSchemaType>({
+    resolver: zodResolver(orderSchema),
+  });
+
+  // Reset form when order data is loaded
+  useEffect(() => {
+    if (orderData) {
+      reset({
+        discount: orderData.discount || 0,
+        paid: orderData.totalPaid || 0,
+      });
+      // Set cart products
+      if (orderData.cartProducts) {
+        const formattedProducts = orderData.cartProducts.map((cp) => ({
+          id: cp.id,
+          quantity: cp.quantity || 0,
+          notes: cp.notes || "",
+          price: cp.productPrice || 0,
+          productName: cp?.product?.name || "",
+          quantityType: cp?.product?.quantityType || 0,
+        }));
+        setProducts(formattedProducts);
+      }
+    }
+  }, [orderData, reset]);
+
+  const onSubmit = async (data: OrderSchemaType) => {
+    const updateData = {
+      discount: data.discount,
+      paid: data.paid,
+      products: products.map((p) => ({
+        id: p.id,
+        quantity: p.quantity,
+        notes: p.notes,
+        price: p.price,
+      })),
+    };
+
+    updateOrderMutation.mutate(
+      { id: Number(id), orderData: updateData },
+      {
+        onSuccess: () => {
+          // Refetch the order data to get the updated information
+          setTimeout(() => {
+            refetchOrder();
+          }, 500); // Small delay to ensure API has processed the update
+          onAdded();
+          onClose();
+        },
+      }
+    );
+  };
+
+  const handleProductChange = (
+    index: number,
+    field: string,
+    value: string | number
+  ) => {
+    const newProducts = [...products];
+    newProducts[index] = {
+      ...newProducts[index],
+      [field]: value,
+    };
+    setProducts(newProducts);
+  };
+
+  type ProductRow = {
+    id: number;
+    productName: string;
+    quantity: number;
+    price: number;
+    notes: string;
+  };
+
+  // Totals summary values (live as user edits discount/paid)
+  const subtotal = Number(orderData?.total || 0);
+  const discountValue = Number(watch("discount") ?? 0);
+  const paidValue = Number(watch("paid") ?? 0);
+  const totalAfterDiscount = Math.max(subtotal - discountValue, 0);
+  const remaining = Math.max(orderData?.rest || 0);
+
+  const productColumns: Column<ProductRow>[] = [
+    {
+      accessorKey: "productName",
+      header: "المنتج",
+      isRendering: true,
+      cell: ({ row }) => (
+        <span className="text-(--base-800)">{row.productName}</span>
+      ),
+    },
+    {
+      accessorKey: "quantity",
+      header: "الكمية",
+      isRendering: true,
+      cell: ({ row }) => {
+        const index = products.findIndex((p) => p.id === row.id);
+        return (
+          <input
+            type="number"
+            min={1}
+            className="w-24 px-2 py-1 border rounded"
+            value={row.quantity}
+            onChange={(e) =>
+              handleProductChange(index, "quantity", Number(e.target.value))
+            }
+          />
+        );
+      },
+    },
+    {
+      accessorKey: "price",
+      header: "السعر",
+      isRendering: true,
+      cell: ({ row }) => {
+        const index = products.findIndex((p) => p.id === row.id);
+        return (
+          <input
+            type="number"
+            min={0}
+            step={0.01}
+            className="w-28 px-2 py-1 border rounded"
+            value={row.price}
+            onChange={(e) =>
+              handleProductChange(index, "price", Number(e.target.value))
+            }
+          />
+        );
+      },
+    },
+    {
+      accessorKey: "quantityType",
+      header: "نوع الكمية",
+      isRendering: true,
+      cell: ({ row }) => {
+        console.log(row);
+        return (
+          <span className="text-(--base-800)">
+            {
+              quantityTypes.find((q) => q.value === String(row.quantityType))
+                ?.label
+            }
+          </span>
+        );
+      },
+    },
+    {
+      accessorKey: "notes",
+      header: "ملاحظات",
+      isRendering: true,
+      cell: ({ row }) => {
+        const index = products.findIndex((p) => p.id === row.id);
+        return (
+          <input
+            type="text"
+            className="w-64 px-2 py-1 border rounded"
+            value={row.notes}
+            onChange={(e) =>
+              handleProductChange(index, "notes", e.target.value)
+            }
+            placeholder="ملاحظات إضافية"
+          />
+        );
+      },
+    },
+    {
+      accessorKey: "total",
+      header: "الإجمالي",
+      isRendering: true,
+      cell: ({ row }) => (
+        <span className="font-medium">
+          {(row.quantity * row.price).toFixed(2)}
+        </span>
+      ),
+    },
+  ];
+
+  if (isLoadingOrder) {
+    return (
+      <div className="w-full mt-4 text-center">جاري تحميل بيانات الطلب...</div>
+    );
+  }
+
+  if (orderError) {
+    return (
+      <div className="w-full mt-4 text-center">
+        <p className="text-red-500">حدث خطأ في تحميل بيانات الطلب</p>
+        <p className="text-xs text-gray-400 mt-1">
+          Error: {orderError?.message || "Unknown error"}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="w-full mt-4 space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Input
+          id="discount"
+          label="الخصم"
+          type="number"
+          placeholder="أدخل الخصم"
+          {...register("discount", { valueAsNumber: true })}
+          error={errors.discount?.message}
+        />
+
+        <Input
+          id="paid"
+          label="المبلغ المدفوع"
+          type="number"
+          placeholder="أدخل المبلغ المدفوع"
+          {...register("paid", { valueAsNumber: true })}
+          error={errors.paid?.message}
+        />
+      </div>
+
+      {/* Products Section */}
+      {products.length > 0 && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-gray-700">منتجات الطلب</h3>
+          <Table<ProductRow>
+            data={products as ProductRow[]}
+            columns={productColumns}
+          />
+          <div className="mt-4 ml-auto w-full max-w-md">
+            <div className="rounded-lg border border-(--base-200) bg-white shadow-sm p-4">
+              <div className="text-sm text-(--base-500) mb-2">
+                ملخص الفاتورة
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-(--base-600)">المجموع الفرعي</span>
+                  <span className="font-semibold text-(--base-900)">
+                    {subtotal.toFixed(2)} $
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-t border-(--base-200) pt-2">
+                  <span className="text-(--base-600)">الخصم</span>
+                  <span className="font-semibold text-red-600">
+                    -{discountValue.toFixed(2)} $
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-t border-(--base-200) pt-2">
+                  <span className="text-(--base-600)">الإجمالي بعد الخصم</span>
+                  <span className="font-semibold text-(--base-900)">
+                    {totalAfterDiscount.toFixed(2)} $
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-t border-(--base-200) pt-2">
+                  <span className="text-(--base-600)">المدفوع</span>
+                  <span className="font-semibold text-green-600">
+                    {paidValue.toFixed(2)} $
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xl border-t border-(--base-200) pt-2">
+                  <span className="text-(--base-600)">المتبقي</span>
+                  <span className="font-semibold text-red-600">
+                    {remaining.toFixed(2)} $
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center gap-3 pt-4">
+        <Button
+          type="submit"
+          disabled={updateOrderMutation.isPending}
+          className="flex items-center gap-2"
+        >
+          {updateOrderMutation.isPending ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              جاري التحديث...
+            </>
+          ) : (
+            <>
+              <Icons.edit className="w-4 h-4" />
+              تحديث الطلب
+            </>
+          )}
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={onClose}
+          disabled={updateOrderMutation.isPending}
+        >
+          إلغاء
+        </Button>
+      </div>
+    </form>
+  );
+};
+
+export default EditOrderForm;
