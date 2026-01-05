@@ -17,6 +17,21 @@ export const getAllProducts = async (
   return response.data.data || [];
 };
 
+// Get products brief (id, name, price, barcode)
+export interface ProductBrief {
+  id: number;
+  name: string;
+  price: string;
+  barcode: string | null;
+}
+
+export const getProductsBrief = async (): Promise<ProductBrief[]> => {
+  const response = await axiosInstance.get<ProductBrief[]>(
+    API_BASE_URL + "/products/all/brief"
+  );
+  return response.data || [];
+};
+
 // Get product by ID
 export const getProductById = async (id: number | string): Promise<Product> => {
   const response = await axiosInstance.get(API_BASE_URL + `/products/${id}`);
@@ -95,6 +110,9 @@ export const createProduct = async (
   formData.append("minimum", productData.minimum?.toString() || "0");
   formData.append("productionDate", productData.productionDate);
   formData.append("medicalNecessity", productData.medicalNecessity || "");
+  if (productData.barcode) {
+    formData.append("barcode", productData.barcode);
+  }
 
   // Add attributes in the correct format: attributes[0][value] and attributes[0][categoryAttributeId]
   if (productData.attributes && productData.attributes.length > 0) {
@@ -162,6 +180,9 @@ export const updateProduct = async (
     formData.append("medicalNecessity", productData.medicalNecessity);
   if (productData.categoryId)
     formData.append("categoryId", productData.categoryId.toString());
+  if (productData.barcode) {
+    formData.append("barcode", productData.barcode);
+  }
 
   // Add attributes in the correct format: attributes[0][value] and attributes[0][categoryAttributeId]
   if (productData.attributes && productData.attributes.length > 0) {

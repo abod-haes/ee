@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/base/button";
 import Dialog from "@/components/base/dialog";
 import Table, { type Column } from "@/components/table/table";
@@ -7,7 +7,7 @@ import useBoolean from "@/hook/use-boolean";
 import { Icons } from "@/lib/icons";
 import AddDoctorForm from "./new-doctor";
 import EditDoctorsForm from "./doctor-detail";
-import { useDoctorManagement, useSearchDoctors } from "@/hook/useDoctor";
+import { useDoctorManagement } from "@/hook/useDoctor";
 import type { Doctor } from "@/types/doctor.type";
 
 export default function Doctors() {
@@ -17,39 +17,24 @@ export default function Doctors() {
   const [selectedDoctors, setSelectedDoctors] = useState<string>("");
   const [selectedDoctorsSlug, setSelectedDoctorsSlug] = useState<string>("");
   const [search, setSearch] = useState<string>("");
-  const [debouncedSearch, setDebouncedSearch] = useState<string>("");
-
-  // Debounce search input
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(search);
-    }, 300); // 300ms delay
-
-    return () => clearTimeout(timer);
-  }, [search]);
 
   // Use the new doctor management hook
   const { doctors, isLoading, error, deleteDoctor, isDeleting, refetch } =
     useDoctorManagement();
-
-  // Use search hook when search query is provided
-  const {
-    data: searchResults,
-    isLoading: isSearching,
-    error: searchError,
-  } = useSearchDoctors(debouncedSearch);
 
   const handleDeleteDoctor = async () => {
     deleteDoctor(selectedDoctors);
     del.onFalse();
   };
 
-  // Determine which data to display
-  const displayData =
-    debouncedSearch.trim().length > 0 ? searchResults || [] : doctors;
-  const displayLoading =
-    debouncedSearch.trim().length > 0 ? isSearching : isLoading;
-  const displayError = debouncedSearch.trim().length > 0 ? searchError : error;
+  // Filter doctors locally based on search
+  const displayData = search.trim()
+    ? doctors.filter((doctor) =>
+        doctor.name.toLowerCase().includes(search.toLowerCase())
+      )
+    : doctors;
+  const displayLoading = isLoading;
+  const displayError = error;
 
   const columns: Column<Doctor>[] = [
     {
@@ -157,7 +142,7 @@ export default function Doctors() {
           </p>
         ) : displayData.length === 0 ? (
           <p className="text-center text-gray-500 mt-8">
-            {debouncedSearch.trim().length > 0
+            {search.trim().length > 0
               ? "لا توجد نتائج للبحث"
               : "لا يوجد أطباء حالياً لعرضهم"}
           </p>

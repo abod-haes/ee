@@ -36,7 +36,10 @@ export const getMe = async (): Promise<User> => {
       try {
         const { tokenUtils } = await import("@/lib/token-utils");
         tokenUtils.clearAuth();
-      } catch {}
+      } catch (clearError) {
+        // Ignore errors when clearing auth
+        console.error("Error clearing auth:", clearError);
+      }
       if (typeof window !== "undefined") {
         window.location.replace("/sign-in");
       }
@@ -78,9 +81,7 @@ export const updateUser = async (
 
 // Delete user
 export const deleteUser = async (id: number | string): Promise<void> => {
-  await axiosInstance.delete<ApiResponse<void>>(
-    `${API_BASE_URL}/users/${id}`
-  );
+  await axiosInstance.delete<ApiResponse<void>>(`${API_BASE_URL}/users/${id}`);
 };
 
 // Get paginated users

@@ -48,7 +48,16 @@ export default function Order() {
     return users
       .filter((u) => {
         const t = String(u.UserType || "").toLowerCase();
-        return t.includes("rep") || t === "2" || t === "5";
+        return (
+          t.includes("Rep") ||
+          t.includes("Rep_DataEntry") ||
+          t.includes("rep") ||
+          t.includes("rep_dataEntry") ||
+          t.includes("rep_b") ||
+          t.includes("Rep_B") ||
+          t === "2" ||
+          t === "5"
+        );
       })
       .map((u) => ({ value: String(u.id), label: u.fullName }));
   }, [users]);
@@ -373,6 +382,7 @@ export default function Order() {
               color: #333;
               flex-shrink: 0;
               text-align: left;
+              width: min-content;
             }
             .contact-info div {
               margin: 3px 0;
@@ -554,7 +564,9 @@ export default function Order() {
                 <div>0962 476408</div>
                 <div>0933 495867</div>
                 <div>e-mail: alsharq@gmail.com</div>
-              </div>
+                <div>سوريا - حلب - الجميلية</div>
+                <div>أمام الحكم العسكرية</div>
+                </div>
               
               <div class="company-section">
                 <img src="${
@@ -865,7 +877,11 @@ export default function Order() {
           </div>
         </div>
       </div>
-
+      <div className="flex justify-end mb-4">
+        <Button type="button" onClick={() => navigate("/orders/add")}>
+          اضافة طلب جديد
+        </Button>
+      </div>
       {loading.value ? (
         <p className="text-center text-gray-500 mt-8">جاري التحميل...</p>
       ) : orders.length === 0 ? (

@@ -7,6 +7,7 @@ import CategoryPage from "./pages/category/CategoryPage";
 import DoctorsPage from "./pages/doctors/DoctorsPage";
 import OrdersPage from "./pages/orders/OrdersPage";
 import OrderDetailPage from "./pages/orders/OrderDetailPage";
+import AddOrderPage from "./pages/orders/AddOrderPage";
 import ProductsPage from "./pages/products/ProductsPage";
 import AddProductPage from "./pages/products/AddProductPage";
 import EditProductPage from "./pages/products/EditProductPage";
@@ -27,6 +28,7 @@ function App() {
           <Route path="/category" element={<CategoryPage />} />
           <Route path="/doctors" element={<DoctorsPage />} />
           <Route path="/orders" element={<OrdersPage />} />
+          <Route path="/orders/add" element={<AddOrderPage />} />
           <Route path="/orders/:id" element={<OrderDetailPage />} />
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/products/add" element={<AddProductPage />} />

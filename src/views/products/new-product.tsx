@@ -13,30 +13,26 @@ import type { Category } from "@/types/category.type";
 import { quantityTypes } from "@/constant/quantity-types";
 import { cn } from "@/lib/utils";
 
-const productSchema = z
-  .object({
-    name: z.string().min(1, { message: "الاسم مطلوب" }),
-    price: z.string().min(1, { message: "السعر مطلوب" }),
-    netPrice: z.string().min(1, { message: "السعر الصافي مطلوب" }),
-    priceType: z.number().optional(),
-    note: z.string().optional(),
-    description: z.string().optional(),
-    source: z.string().optional(),
-    store: z.string().optional(),
-    manufacturer: z.string().optional(),
-    quantity: z.number().optional(),
-    quantityType: z.number().optional(),
-    storagePlace: z.string().optional(),
-    storageLocation: z.string().optional(),
-    minimum: z.number().optional(),
-    productionDate: z.string().optional(),
-    medicalNecessity: z.string().optional(),
-    categoryId: z.number().optional(),
-  })
-  .refine((data) => data.categoryId !== undefined && data.categoryId > 0, {
-    message: "الصنف مطلوب",
-    path: ["categoryId"],
-  });
+const productSchema = z.object({
+  name: z.string().min(1, { message: "الاسم مطلوب" }),
+  price: z.string().min(1, { message: "السعر مطلوب" }),
+  netPrice: z.string().min(1, { message: "السعر الصافي مطلوب" }),
+  priceType: z.number().optional(),
+  note: z.string().min(1, { message: "ملاحظات مطلوبة" }),
+  description: z.string().min(1, { message: "الوصف مطلوب" }),
+  source: z.string().optional(),
+  store: z.string().optional(),
+  manufacturer: z.string().optional(),
+  quantity: z.number().optional(),
+  quantityType: z.number().optional(),
+  storagePlace: z.string().optional(),
+  storageLocation: z.string().optional(),
+  minimum: z.number().optional(),
+  productionDate: z.string().optional(),
+  medicalNecessity: z.string().optional(),
+  categoryId: z.number().optional(),
+  barcode: z.string().optional(),
+});
 
 export type AddNewProductProp = {
   onClose: () => void;
@@ -91,6 +87,14 @@ const AddProductForm = ({ onClose, onAdded }: AddNewProductProp) => {
   const selectedCategory = selectedCategoryId
     ? categories.find((cat) => cat.id === selectedCategoryId)
     : selectedParentCategory;
+
+  // Auto-focus on barcode input
+  useEffect(() => {
+    const barcodeInput = document.getElementById("barcode") as HTMLInputElement;
+    if (barcodeInput) {
+      barcodeInput.focus();
+    }
+  }, []);
 
   // Auto-populate all attributes for the selected category so user can delete unneeded ones
   useEffect(() => {
@@ -155,8 +159,8 @@ const AddProductForm = ({ onClose, onAdded }: AddNewProductProp) => {
         price: data.price,
         netPrice: data.netPrice,
         priceType: data.priceType ?? 0,
-        note: data.note || "",
-        description: data.description || "",
+        note: data.note,
+        description: data.description,
         source: data.source || "",
         store: data.store || "",
         manufacturer: data.manufacturer || "",
@@ -167,9 +171,10 @@ const AddProductForm = ({ onClose, onAdded }: AddNewProductProp) => {
         minimum: data.minimum ?? 0,
         productionDate: data.productionDate || "",
         medicalNecessity: data.medicalNecessity || "",
-        categoryId: finalCategoryId!,
+        categoryId: finalCategoryId,
         attributes: validAttributes,
         images: selectedImages,
+        barcode: data.barcode || "",
       },
       {
         onSuccess: () => {
@@ -194,33 +199,93 @@ const AddProductForm = ({ onClose, onAdded }: AddNewProductProp) => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
+            id="barcode"
+            label="الباركود"
+            placeholder="أدخل الباركود"
+            {...register("barcode")}
+            error={errors.barcode?.message}
+          />
+
+          <Input
             id="name"
             label="اسم المنتج"
             placeholder="أدخل اسم المنتج"
             {...register("name")}
             error={errors.name?.message}
           />
+        </div>
+        <div
+          className={cn(
+            "grid grid-cols-1 gap-4",
+            selectedParentCategoryId && childCategories.length > 0
+              ? "md:grid-cols-2 "
+              : ""
+          )}
+        >
+          <BaseSelect
+            label="الصنف"
+            placeholder="اختر الصنف"
+            options={parentCategories.map((category) => ({
+              label: category.name,
+              value: category.id.toString(),
+            }))}
+            value={
+              selectedParentCategoryId !== undefined
+                ? {
+                    label: selectedParentCategory?.name || "",
+                    value: selectedParentCategoryId.toString(),
+                  }
+                : null
+            }
+            onChange={(selectedOption) => {
+              if (
+                selectedOption &&
+                !Array.isArray(selectedOption) &&
+                "value" in selectedOption
+              ) {
+                const parentId = parseInt(selectedOption.value);
+                setSelectedParentCategoryId(parentId);
+                // If parent has no children, set it as categoryId
+                const parent = parentCategories.find(
+                  (cat) => cat.id === parentId
+                );
+                if (
+                  parent &&
+                  (!parent.children || parent.children.length === 0)
+                ) {
+                  setValue("categoryId", parentId);
+                } else {
+                  // Reset categoryId if parent has children (will be set when child is selected)
+                  setValue("categoryId", undefined as unknown as number);
+                }
+              } else {
+                setSelectedParentCategoryId(undefined);
+                setValue("categoryId", undefined as unknown as number);
+              }
+            }}
+            error={errors.categoryId?.message}
+          />
 
-          <div
-            className={cn(
-              "grid grid-cols-1 gap-4",
-              selectedParentCategoryId && childCategories.length > 0
-                ? "md:grid-cols-2 "
-                : ""
-            )}
-          >
+          {/* Child Categories Select */}
+          {selectedParentCategoryId && childCategories.length > 0 && (
             <BaseSelect
-              label="الصنف"
-              placeholder="اختر الصنف"
-              options={parentCategories.map((category) => ({
-                label: category.name,
-                value: category.id.toString(),
+              label="الصنف الفرعي"
+              placeholder="اختر الصنف الفرعي"
+              options={childCategories.map((child: Category) => ({
+                label: child.name,
+                value: child.id.toString(),
               }))}
               value={
-                selectedParentCategoryId !== undefined
+                selectedCategoryId !== undefined &&
+                childCategories.some(
+                  (cat: Category) => cat.id === selectedCategoryId
+                )
                   ? {
-                      label: selectedParentCategory?.name || "",
-                      value: selectedParentCategoryId.toString(),
+                      label:
+                        childCategories.find(
+                          (cat: Category) => cat.id === selectedCategoryId
+                        )?.name || "",
+                      value: selectedCategoryId.toString(),
                     }
                   : null
               }
@@ -230,70 +295,17 @@ const AddProductForm = ({ onClose, onAdded }: AddNewProductProp) => {
                   !Array.isArray(selectedOption) &&
                   "value" in selectedOption
                 ) {
-                  const parentId = parseInt(selectedOption.value);
-                  setSelectedParentCategoryId(parentId);
-                  // If parent has no children, set it as categoryId
-                  const parent = parentCategories.find(
-                    (cat) => cat.id === parentId
-                  );
-                  if (
-                    parent &&
-                    (!parent.children || parent.children.length === 0)
-                  ) {
-                    setValue("categoryId", parentId);
-                  } else {
-                    // Reset categoryId if parent has children (will be set when child is selected)
-                    setValue("categoryId", undefined as unknown as number);
-                  }
+                  setValue("categoryId", parseInt(selectedOption.value));
                 } else {
-                  setSelectedParentCategoryId(undefined);
-                  setValue("categoryId", undefined as unknown as number);
+                  // If no child selected, use parent category
+                  if (selectedParentCategoryId) {
+                    setValue("categoryId", selectedParentCategoryId);
+                  }
                 }
               }}
               error={errors.categoryId?.message}
             />
-
-            {/* Child Categories Select */}
-            {selectedParentCategoryId && childCategories.length > 0 && (
-              <BaseSelect
-                label="الصنف الفرعي"
-                placeholder="اختر الصنف الفرعي"
-                options={childCategories.map((child: Category) => ({
-                  label: child.name,
-                  value: child.id.toString(),
-                }))}
-                value={
-                  selectedCategoryId !== undefined &&
-                  childCategories.some(
-                    (cat: Category) => cat.id === selectedCategoryId
-                  )
-                    ? {
-                        label:
-                          childCategories.find(
-                            (cat: Category) => cat.id === selectedCategoryId
-                          )?.name || "",
-                        value: selectedCategoryId.toString(),
-                      }
-                    : null
-                }
-                onChange={(selectedOption) => {
-                  if (
-                    selectedOption &&
-                    !Array.isArray(selectedOption) &&
-                    "value" in selectedOption
-                  ) {
-                    setValue("categoryId", parseInt(selectedOption.value));
-                  } else {
-                    // If no child selected, use parent category
-                    if (selectedParentCategoryId) {
-                      setValue("categoryId", selectedParentCategoryId);
-                    }
-                  }
-                }}
-                error={errors.categoryId?.message}
-              />
-            )}
-          </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -475,7 +487,13 @@ const AddProductForm = ({ onClose, onAdded }: AddNewProductProp) => {
             label="الكمية"
             placeholder="أدخل الكمية"
             type="number"
-            {...register("quantity", { valueAsNumber: true })}
+            {...register("quantity", {
+              setValueAs: (v) => {
+                if (v === "" || v === null || v === undefined) return undefined;
+                const num = Number(v);
+                return isNaN(num) ? undefined : num;
+              },
+            })}
             error={errors.quantity?.message}
           />
 
@@ -517,7 +535,13 @@ const AddProductForm = ({ onClose, onAdded }: AddNewProductProp) => {
             label="الحد الأدنى"
             placeholder="أدخل الحد الأدنى"
             type="number"
-            {...register("minimum", { valueAsNumber: true })}
+            {...register("minimum", {
+              setValueAs: (v) => {
+                if (v === "" || v === null || v === undefined) return undefined;
+                const num = Number(v);
+                return isNaN(num) ? undefined : num;
+              },
+            })}
             error={errors.minimum?.message}
           />
         </div>

@@ -32,6 +32,7 @@ export interface Product {
   medicalNecessity: string;
   images: string[];
   categoryId: number;
+  barcode?: string;
   category: ProductCategory;
   attributes: ProductAttribute[];
 }
@@ -54,6 +55,7 @@ export interface CreateProductRequest {
   productionDate: string;
   medicalNecessity?: string;
   categoryId?: number;
+  barcode?: string;
   attributes?: Array<{
     value: string;
     categoryAttributeId: number;
@@ -79,6 +81,7 @@ export interface UpdateProductRequest {
   productionDate?: string;
   medicalNecessity?: string;
   categoryId?: number;
+  barcode?: string;
   attributes?: Array<{
     value: string;
     categoryAttributeId: number;

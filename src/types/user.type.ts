@@ -8,6 +8,7 @@ export interface User {
   withPrice?: number;
   password?: string;
   createdAt?: string;
+  address?: string;
   updatedAt?: string;
 }
 

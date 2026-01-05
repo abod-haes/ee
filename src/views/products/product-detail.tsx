@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
-import { useForm } from "react-hook-form";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Input } from "@/components/base/input";
@@ -12,30 +12,36 @@ import { Icons } from "@/lib/icons";
 import { quantityTypes } from "@/constant/quantity-types";
 import type { Category } from "@/types/category.type";
 
-const productSchema = z
-  .object({
-    name: z.string().min(1, { message: "الاسم مطلوب" }),
-    price: z.string().min(1, { message: "السعر مطلوب" }),
-    netPrice: z.string().min(1, { message: "السعر الصافي مطلوب" }),
-    priceType: z.number().optional(),
-    note: z.string().optional(),
-    description: z.string().optional(),
-    source: z.string().optional(),
-    store: z.string().optional(),
-    manufacturer: z.string().optional(),
-    quantity: z.number().optional(),
-    quantityType: z.number().optional(),
-    storagePlace: z.string().optional(),
-    storageLocation: z.string().optional(),
-    minimum: z.number().optional(),
-    productionDate: z.string().optional(),
-    medicalNecessity: z.string().optional(),
-    categoryId: z.number().optional(),
-  })
-  .refine((data) => data.categoryId !== undefined && data.categoryId > 0, {
-    message: "الصنف مطلوب",
-    path: ["categoryId"],
-  });
+const productSchema = z.object({
+  name: z.string().min(1, { message: "الاسم مطلوب" }),
+  price: z.string().min(1, { message: "السعر مطلوب" }),
+  netPrice: z.string().min(1, { message: "السعر الصافي مطلوب" }),
+  priceType: z.number().optional(),
+  note: z.string().min(1, { message: "ملاحظات مطلوبة" }),
+  description: z.string().min(1, { message: "الوصف مطلوب" }),
+  source: z.string().optional(),
+  store: z.string().optional(),
+  manufacturer: z.string().optional(),
+  quantity: z.number().optional(),
+  quantityType: z.number().optional(),
+  storagePlace: z.string().optional(),
+  storageLocation: z.string().optional(),
+  minimum: z.number().optional(),
+  productionDate: z.string().optional(),
+  medicalNecessity: z.string().optional(),
+  attributes: z
+    .array(
+      z.object({
+        value: z.string().optional(),
+        categoryAttributeId: z.number().optional(),
+      })
+    )
+    .optional(),
+  // Local-only field used to drive parent/child category selects
+  parentCategoryId: z.number().optional(),
+  categoryId: z.number().optional(),
+  barcode: z.string().optional(),
+});
 
 type ProductFormData = z.infer<typeof productSchema>;
 
@@ -46,15 +52,6 @@ export type EditProductProp = {
 };
 
 const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
-  const [attributes, setAttributes] = useState<
-    Array<{
-      value: string;
-      categoryAttributeId: number;
-    }>
-  >([]);
-  useEffect(() => {
-    console.log(attributes);
-  }, [attributes]);
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -66,8 +63,11 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
   } = useProductBySlug(slug);
   const updateProductMutation = useUpdateProduct();
   const { data: categoriesData } = useCategories({ withChildren: true });
-  const categories: Category[] = categoriesData ?? [];
-  
+  const categories: Category[] = useMemo(
+    () => categoriesData ?? [],
+    [categoriesData]
+  );
+
   // Filter parent categories (those with categoryId === null)
   const parentCategories = categories.filter(
     (cat) => cat.categoryId === null || cat.categoryId === undefined
@@ -78,23 +78,41 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
     handleSubmit,
     formState: { errors },
     reset,
-    watch,
     setValue,
+    control,
   } = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
+    defaultValues: {
+      attributes: [],
+    },
   });
 
-  const [selectedParentCategoryId, setSelectedParentCategoryId] = useState<number | undefined>(undefined);
-  const selectedCategoryId = watch("categoryId");
-  
+  const {
+    fields: attributeFields,
+    append,
+    remove,
+  } = useFieldArray({
+    control,
+    name: "attributes",
+  });
+
+  const selectedParentCategoryId = useWatch({
+    control,
+    name: "parentCategoryId",
+  });
+  const selectedCategoryId = useWatch({ control, name: "categoryId" });
+  const watchedPriceType = useWatch({ control, name: "priceType" });
+  const watchedQuantityType = useWatch({ control, name: "quantityType" });
+  const watchedProductionDate = useWatch({ control, name: "productionDate" });
+
   // Get the selected parent category
   const selectedParentCategory = parentCategories.find(
     (cat) => cat.id === selectedParentCategoryId
   );
-  
+
   // Get children of selected parent category
   const childCategories = selectedParentCategory?.children || [];
-  
+
   // Get the final selected category (child if selected, otherwise parent)
   const selectedCategory = selectedCategoryId
     ? categories.find((cat) => cat.id === selectedCategoryId)
@@ -104,18 +122,20 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
   useEffect(() => {
     if (productData) {
       const productCategoryId = productData.categoryId;
-      
+
       // Find if the category is a child or parent
-      const productCategory = categories.find((cat) => cat.id === productCategoryId);
-      const isChildCategory = productCategory?.categoryId !== null && productCategory?.categoryId !== undefined;
-      
-      // Set parent category ID
-      if (isChildCategory && productCategory) {
-        setSelectedParentCategoryId(productCategory.categoryId || undefined);
-      } else {
-        setSelectedParentCategoryId(productCategoryId);
-      }
-      
+      const productCategory = categories.find(
+        (cat) => cat.id === productCategoryId
+      );
+      const isChildCategory =
+        productCategory?.categoryId !== null &&
+        productCategory?.categoryId !== undefined;
+
+      // Set parent category ID (local-only form field)
+      const parentCategoryId = isChildCategory
+        ? productCategory?.categoryId ?? undefined
+        : productCategoryId;
+
       reset({
         name: productData.name,
         price: productData.price,
@@ -133,14 +153,14 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
         minimum: productData.minimum || 0,
         productionDate: productData.productionDate.split("T")[0], // Format date for input
         medicalNecessity: productData.medicalNecessity || "",
+        parentCategoryId,
         categoryId: productData.categoryId,
-      });
-      setAttributes(
-        (productData.attributes || []).map((attr) => ({
+        barcode: productData.barcode || "",
+        attributes: (productData.attributes || []).map((attr) => ({
           value: attr.value,
           categoryAttributeId: attr.categoryAttributeId,
-        }))
-      );
+        })),
+      });
     }
   }, [productData, reset, categories]);
 
@@ -153,29 +173,18 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
     setSelectedImages(selectedImages.filter((_, i) => i !== index));
   };
 
-  const addAttribute = () => {
-    setAttributes([...attributes, { value: "", categoryAttributeId: 0 }]);
-  };
-
-  const removeAttribute = (index: number) => {
-    setAttributes(attributes.filter((_, i) => i !== index));
-  };
-
-  const updateAttribute = (
-    index: number,
-    field: "value" | "categoryAttributeId",
-    value: string | number
-  ) => {
-    const newAttributes = [...attributes];
-    newAttributes[index] = { ...newAttributes[index], [field]: value };
-    setAttributes(newAttributes);
-  };
-
   const onSubmit = async (data: ProductFormData) => {
     try {
-      const validAttributes = attributes.filter(
-        (attr) => attr.value.trim() !== "" && attr.categoryAttributeId > 0
-      );
+      const validAttributes = (data.attributes ?? [])
+        .filter(
+          (attr) =>
+            (attr.value ?? "").trim() !== "" &&
+            (attr.categoryAttributeId ?? 0) > 0
+        )
+        .map((attr) => ({
+          value: (attr.value ?? "").trim(),
+          categoryAttributeId: attr.categoryAttributeId as number,
+        }));
 
       // Use child category if selected, otherwise use parent category
       const finalCategoryId = data.categoryId || selectedParentCategoryId;
@@ -185,8 +194,8 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
         price: data.price,
         netPrice: data.netPrice,
         priceType: data.priceType ?? 0,
-        note: data.note || "",
-        description: data.description || "",
+        note: data.note,
+        description: data.description,
         source: data.source || "",
         store: data.store || "",
         manufacturer: data.manufacturer || "",
@@ -200,6 +209,7 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
         categoryId: finalCategoryId!,
         attributes: validAttributes,
         images: selectedImages.length > 0 ? selectedImages : undefined,
+        barcode: data.barcode || "",
       };
 
       await updateProductMutation.mutateAsync({
@@ -251,11 +261,19 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
     >
       {/* Basic Information Section */}
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-[var(--silver)] border-b pb-2">
+        <h3 className="text-lg font-semibold text-(--silver) border-b pb-2">
           المعلومات الأساسية
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Input
+            id="barcode"
+            label="الباركود"
+            placeholder="أدخل الباركود"
+            {...register("barcode")}
+            error={errors.barcode?.message}
+          />
+
           <Input
             id="name"
             label="اسم المنتج"
@@ -286,7 +304,7 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
                 "value" in selectedOption
               ) {
                 const parentId = parseInt(selectedOption.value);
-                setSelectedParentCategoryId(parentId);
+                setValue("parentCategoryId", parentId);
                 // If parent has no children, set it as categoryId
                 const parent = parentCategories.find(
                   (cat) => cat.id === parentId
@@ -301,7 +319,7 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
                   setValue("categoryId", undefined as unknown as number);
                 }
               } else {
-                setSelectedParentCategoryId(undefined);
+                setValue("parentCategoryId", undefined as unknown as number);
                 setValue("categoryId", undefined as unknown as number);
               }
             }}
@@ -319,7 +337,9 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
               }))}
               value={
                 selectedCategoryId !== undefined &&
-                childCategories.some((cat: Category) => cat.id === selectedCategoryId)
+                childCategories.some(
+                  (cat: Category) => cat.id === selectedCategoryId
+                )
                   ? {
                       label:
                         childCategories.find(
@@ -372,12 +392,12 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
         selectedCategory.attributes &&
         selectedCategory.attributes.length > 0 && (
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-[var(--silver)] border-b pb-2">
+            <h3 className="text-lg font-semibold text-(--silver) border-b pb-2">
               خصائص المنتج
             </h3>
 
             <div className="space-y-3">
-              {attributes.map((attr, index) => (
+              {attributeFields.map((field, index) => (
                 <div key={index} className="grid grid-cols-4 gap-2">
                   <div className="col-span-1">
                     <BaseSelect
@@ -390,13 +410,13 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
                         })),
                       ]}
                       value={
-                        attr.categoryAttributeId
+                        field.categoryAttributeId
                           ? {
                               label:
                                 selectedCategory.attributes.find(
-                                  (cat) => cat.id === attr.categoryAttributeId
+                                  (cat) => cat.id === field.categoryAttributeId
                                 )?.name || "",
-                              value: attr.categoryAttributeId.toString(),
+                              value: String(field.categoryAttributeId),
                             }
                           : null
                       }
@@ -409,9 +429,8 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
                           const categoryAttributeId = parseInt(
                             selectedOption.value
                           );
-                          updateAttribute(
-                            index,
-                            "categoryAttributeId",
+                          setValue(
+                            `attributes.${index}.categoryAttributeId`,
                             categoryAttributeId
                           );
                         }
@@ -420,19 +439,16 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
                   </div>
                   <div className="col-span-3 flex items-center gap-2">
                     <Input
-                      value={attr.value}
-                      onChange={(e) =>
-                        updateAttribute(index, "value", e.target.value)
-                      }
+                      {...register(`attributes.${index}.value`)}
                       placeholder="أدخل القيمة"
                       className="flex-1"
                     />
-                    {attributes.length > 1 && (
+                    {attributeFields.length > 1 && (
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => removeAttribute(index)}
+                        onClick={() => remove(index)}
                       >
                         حذف
                       </Button>
@@ -444,7 +460,7 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={addAttribute}
+                onClick={() => append({ value: "", categoryAttributeId: 0 })}
                 className="w-full"
               >
                 إضافة خاصية
@@ -455,7 +471,7 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
 
       {/* Pricing Information Section */}
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-[var(--silver)] border-b pb-2">
+        <h3 className="text-lg font-semibold text-(--silver) border-b pb-2">
           معلومات التسعير
         </h3>
 
@@ -489,15 +505,15 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
               { label: "سعر خاص", value: "2" },
             ]}
             value={
-              watch("priceType") !== undefined
+              watchedPriceType !== undefined
                 ? {
                     label:
-                      watch("priceType") === 0
+                      watchedPriceType === 0
                         ? "سعر عادي"
-                        : watch("priceType") === 1
+                        : watchedPriceType === 1
                         ? "سعر مخفض"
                         : "سعر خاص",
-                    value: watch("priceType").toString(),
+                    value: watchedPriceType.toString(),
                   }
                 : null
             }
@@ -517,7 +533,7 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
 
       {/* Inventory Information Section */}
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-[var(--silver)] border-b pb-2">
+        <h3 className="text-lg font-semibold text-(--silver) border-b pb-2">
           معلومات المخزون
         </h3>
 
@@ -527,7 +543,13 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
             label="الكمية"
             placeholder="أدخل الكمية"
             type="number"
-            {...register("quantity", { valueAsNumber: true })}
+            {...register("quantity", {
+              setValueAs: (v) => {
+                if (v === "" || v === null || v === undefined) return undefined;
+                const num = Number(v);
+                return isNaN(num) ? undefined : num;
+              },
+            })}
             error={errors.quantity?.message}
           />
 
@@ -536,19 +558,19 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
             placeholder="اختر نوع الكمية"
             options={quantityTypes}
             value={
-              watch("quantityType") !== undefined
+              watchedQuantityType !== undefined
                 ? {
                     label:
-                      watch("quantityType") === 0
+                      watchedQuantityType === 0
                         ? "قطعة"
-                        : watch("quantityType") === 1
+                        : watchedQuantityType === 1
                         ? "عبوة"
-                        : watch("quantityType") === 2
+                        : watchedQuantityType === 2
                         ? "ليتر"
-                        : watch("quantityType") === 3
+                        : watchedQuantityType === 3
                         ? "صندوق"
                         : "قطعة",
-                    value: watch("quantityType").toString(),
+                    value: watchedQuantityType.toString(),
                   }
                 : null
             }
@@ -569,7 +591,13 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
             label="الحد الأدنى"
             placeholder="أدخل الحد الأدنى"
             type="number"
-            {...register("minimum", { valueAsNumber: true })}
+            {...register("minimum", {
+              setValueAs: (v) => {
+                if (v === "" || v === null || v === undefined) return undefined;
+                const num = Number(v);
+                return isNaN(num) ? undefined : num;
+              },
+            })}
             error={errors.minimum?.message}
           />
         </div>
@@ -577,7 +605,7 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
 
       {/* Production Information Section */}
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-[var(--silver)] border-b pb-2">
+        <h3 className="text-lg font-semibold text-(--silver) border-b pb-2">
           معلومات الإنتاج
         </h3>
 
@@ -586,7 +614,7 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
             id="productionDate"
             label="تاريخ الإنتاج"
             placeholder="اختر تاريخ الإنتاج"
-            value={watch("productionDate")}
+            value={watchedProductionDate}
             onChange={(value) => setValue("productionDate", value)}
             error={errors.productionDate?.message}
           />
@@ -603,7 +631,7 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
 
       {/* Supplier Information Section */}
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-[var(--silver)] border-b pb-2">
+        <h3 className="text-lg font-semibold text-(--silver) border-b pb-2">
           معلومات المورد
         </h3>
 
@@ -628,7 +656,7 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
 
       {/* Storage Information Section */}
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-[var(--silver)] border-b pb-2">
+        <h3 className="text-lg font-semibold text-(--silver) border-b pb-2">
           معلومات التخزين
         </h3>
 

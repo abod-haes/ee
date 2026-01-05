@@ -44,8 +44,8 @@ export function getUserTypeArabic(type: unknown): string {
     case "rep dataentry":
       return "مندوب ومدخل بيانات";
     case "5":
-    case "req_b":
-    case "req b":
+    case "rep_b":
+    case "rep b":
       return "مندوبB";
     default:
       return String(type);
@@ -66,7 +66,7 @@ export function normalizeUserTypeToCode(
   if (value === "dataentry" || value === "data entry") return "1";
   if (value === "rep") return "2";
   if (value === "doctor" || value === "dr") return "3";
-  if (value === "req_b" || value === "req b") return "5";
+  if (value === "rep_b" || value === "rep b") return "5";
 
   if (
     value === "rep_dataentry" ||
