@@ -1,35 +1,29 @@
-import { useParams, useNavigate } from 'react-router-dom';
-import EditOrderForm from '@/views/order/order-detail';
-import { Button } from '@/components/base/button';
-import { useOrder } from '@/hook/useOrder';
+import { useParams, useNavigate } from "react-router-dom";
+import EditOrderForm from "@/views/order/order-detail";
+import { useOrder } from "@/hook/useOrder";
+import PrintOrderButton from "@/components/order/print-order-button";
 
 export default function OrderDetailPage() {
   const params = useParams();
   const navigate = useNavigate();
   const orderId = params.id as string;
   const { data: order } = useOrder(Number(orderId));
-  
+
   const handleClose = () => {
-    navigate('/orders');
+    navigate("/orders");
   };
 
   const handleAdded = () => {
-    navigate('/orders');
+    navigate("/orders");
   };
 
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-800">
-          تعديل الطلب #{orderId} - {order?.doctor?.name || ''}
+          تعديل الطلب #{orderId} - {order?.doctor?.name || ""}
         </h1>
-        <Button
-          variant="outline"
-          onClick={handleClose}
-          className="flex items-center gap-2"
-        >
-          العودة
-        </Button>
+        <PrintOrderButton orderId={Number(orderId)} variant="outline" />
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border p-6">
@@ -42,4 +36,3 @@ export default function OrderDetailPage() {
     </div>
   );
 }
-

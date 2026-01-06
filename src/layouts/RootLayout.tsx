@@ -7,6 +7,27 @@ import type { Order } from "@/types/order.type";
 import { Button } from "@/components/base/button";
 import { tokenUtils } from "@/lib/token-utils";
 
+const formatDateTime = (value?: string | null) => {
+  if (!value) return "-";
+  // Supports: "YYYY-MM-DD HH:mm:ss" and ISO strings.
+  const normalized = value.includes("T") ? value : value.replace(" ", "T");
+  const d = new Date(normalized);
+  if (Number.isNaN(d.getTime())) return value;
+
+  // en-GB yields: "DD/MM/YYYY, HH:mm" → remove comma and normalize separators.
+  return new Intl.DateTimeFormat("en-GB", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  })
+    .format(d)
+    .replace(", ", "   ")
+    .replaceAll("/", "-");
+};
+
 export default function RootLayout() {
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -122,10 +143,12 @@ export default function RootLayout() {
       >
         {selectedOrder ? (
           <div className="space-y-3">
-            <div className="text-center">
+            <div className="text-start">
               <div className="text-gray-500 text-sm mb-1">التاريخ</div>
               <div className="font-medium text-lg">
-                {selectedOrder?.date || selectedOrder?.createdAt || "-"}
+                {formatDateTime(
+                  selectedOrder?.date || selectedOrder?.createdAt
+                )}
               </div>
             </div>
             <div className="flex justify-end gap-2">

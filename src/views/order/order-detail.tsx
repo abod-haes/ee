@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { orderSchema, type OrderSchemaType } from "@/lib/schema";
 import { Input } from "@/components/base/input";
@@ -15,16 +15,17 @@ export type EditOrderProp = {
   onAdded: () => void;
 };
 
+type OrderProductEditRow = {
+  id: number;
+  quantity: number;
+  notes: string;
+  price: number;
+  productName: string;
+  quantityType: number;
+};
+
 const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
-  const [products, setProducts] = useState<
-    Array<{
-      id: number;
-      quantity: number;
-      notes: string;
-      price: number;
-      productName: string;
-    }>
-  >([]);
+  const [products, setProducts] = useState<OrderProductEditRow[]>([]);
 
   const {
     data: orderData,
@@ -38,7 +39,7 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
     handleSubmit,
     formState: { errors },
     reset,
-    watch,
+    control,
   } = useForm<OrderSchemaType>({
     resolver: zodResolver(orderSchema),
   });
@@ -52,15 +53,17 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
       });
       // Set cart products
       if (orderData.cartProducts) {
-        const formattedProducts = orderData.cartProducts.map((cp) => ({
-          id: cp.id,
-          quantity: cp.quantity || 0,
-          notes: cp.notes || "",
-          price: cp.productPrice || 0,
-          productName: cp?.product?.name || "",
-          quantityType: cp?.product?.quantityType || 0,
-        }));
-        setProducts(formattedProducts);
+        const formattedProducts: OrderProductEditRow[] =
+          orderData.cartProducts.map((cp) => ({
+            id: cp.id,
+            quantity: cp.quantity || 0,
+            notes: cp.notes || "",
+            price: cp.productPrice || 0,
+            productName: cp?.product?.name || "",
+            quantityType: cp?.product?.quantityType || 0,
+          }));
+        // Defer state update to avoid synchronous setState inside effect (React Compiler rule)
+        setTimeout(() => setProducts(formattedProducts), 0);
       }
     }
   }, [orderData, reset]);
@@ -92,10 +95,10 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
     );
   };
 
-  const handleProductChange = (
+  const handleProductChange = <K extends keyof OrderProductEditRow>(
     index: number,
-    field: string,
-    value: string | number
+    field: K,
+    value: OrderProductEditRow[K]
   ) => {
     const newProducts = [...products];
     newProducts[index] = {
@@ -106,21 +109,36 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
   };
 
   type ProductRow = {
+    rowIndex: number;
     id: number;
     productName: string;
     quantity: number;
     price: number;
     notes: string;
+    quantityType: number;
   };
 
   // Totals summary values (live as user edits discount/paid)
   const subtotal = Number(orderData?.total || 0);
-  const discountValue = Number(watch("discount") ?? 0);
-  const paidValue = Number(watch("paid") ?? 0);
+  const discountValue = Number(useWatch({ control, name: "discount" }) ?? 0);
+  const paidValue = Number(useWatch({ control, name: "paid" }) ?? 0);
   const totalAfterDiscount = Math.max(subtotal - discountValue, 0);
-  const remaining = Math.max(orderData?.rest || 0);
+  const remaining = Math.max(totalAfterDiscount - Math.max(paidValue, 0), 0);
+
+  const productsTableData: ProductRow[] = products.map((p, idx) => ({
+    ...p,
+    rowIndex: idx + 1,
+  }));
 
   const productColumns: Column<ProductRow>[] = [
+    {
+      accessorKey: "rowIndex",
+      header: "#",
+      isRendering: true,
+      cell: ({ row }) => (
+        <span className="text-(--base-800)">{row.rowIndex}</span>
+      ),
+    },
     {
       accessorKey: "productName",
       header: "المنتج",
@@ -173,7 +191,6 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
       header: "نوع الكمية",
       isRendering: true,
       cell: ({ row }) => {
-        console.log(row);
         return (
           <span className="text-(--base-800)">
             {
@@ -240,16 +257,28 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
           label="الخصم"
           type="number"
           placeholder="أدخل الخصم"
-          {...register("discount", { valueAsNumber: true })}
+          {...register("discount", {
+            setValueAs: (v) => {
+              if (v === "" || v === null || v === undefined) return 0;
+              const num = Number(v);
+              return Number.isFinite(num) ? num : 0;
+            },
+          })}
           error={errors.discount?.message}
         />
 
         <Input
           id="paid"
-          label="المبلغ المدفوع"
+          label="المبلغ المدفوع "
           type="number"
           placeholder="أدخل المبلغ المدفوع"
-          {...register("paid", { valueAsNumber: true })}
+          {...register("paid", {
+            setValueAs: (v) => {
+              if (v === "" || v === null || v === undefined) return 0;
+              const num = Number(v);
+              return Number.isFinite(num) ? num : 0;
+            },
+          })}
           error={errors.paid?.message}
         />
       </div>
@@ -259,7 +288,7 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-gray-700">منتجات الطلب</h3>
           <Table<ProductRow>
-            data={products as ProductRow[]}
+            data={productsTableData}
             columns={productColumns}
           />
           <div className="mt-4 ml-auto w-full max-w-md">

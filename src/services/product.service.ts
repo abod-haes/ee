@@ -22,6 +22,7 @@ export interface ProductBrief {
   id: number;
   name: string;
   price: string;
+  slug: string | null;
   barcode: string | null;
 }
 

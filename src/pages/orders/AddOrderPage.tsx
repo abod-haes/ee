@@ -22,4 +22,3 @@ export default function AddOrderPage() {
     </div>
   );
 }
-

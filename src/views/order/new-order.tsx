@@ -20,11 +20,14 @@ import { API_BASE_URL } from "@/api";
 const orderSchema = z.object({
   doctorId: z.number().min(1, { message: "الطبيب مطلوب" }),
   email: z.string().email().optional().or(z.literal("")),
+  discount: z.number().min(0, { message: "الخصم يجب أن يكون 0 أو أكثر" }),
+  paid: z.number().min(0, { message: "المبلغ المدفوع يجب أن يكون 0 أو أكثر" }),
 });
 
 type OrderFormData = z.infer<typeof orderSchema>;
 
 interface OrderProduct {
+  rowIndex?: number;
   id: number;
   name: string;
   price: string;
@@ -44,6 +47,7 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
   const [products, setProducts] = useState<OrderProduct[]>([]);
   const [productsBrief, setProductsBrief] = useState<ProductBrief[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  const [isLoadingUser, setIsLoadingUser] = useState(false);
   const [selectedProductOption, setSelectedProductOption] =
     useState<Option | null>(null);
   const [user, setUser] = useState<{
@@ -58,17 +62,22 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
   const {
     handleSubmit,
     formState: { errors },
+    register,
     setValue,
     watch,
   } = useForm<OrderFormData>({
     resolver: zodResolver(orderSchema),
     defaultValues: {
-      doctorId: undefined,
+      doctorId: 0,
       email: "",
+      discount: 0,
+      paid: 0,
     },
   });
 
   const doctorId = watch("doctorId");
+  const discountValue = Number(watch("discount") ?? 0);
+  const paidValue = Number(watch("paid") ?? 0);
   const selectedDoctor = useMemo(() => {
     if (!doctorId) return undefined;
     return doctors.find((d) => d.id === doctorId);
@@ -78,6 +87,7 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
   useEffect(() => {
     const loadUser = async () => {
       try {
+        setIsLoadingUser(true);
         const userData = await getMe();
         setUser({
           fullName: userData.fullName,
@@ -88,6 +98,8 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
         setValue("email", userData.email || "");
       } catch (error) {
         console.error("Error loading user:", error);
+      } finally {
+        setIsLoadingUser(false);
       }
     };
     loadUser();
@@ -181,7 +193,9 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
 
     const trimmedBarcode = barcodeValue.trim();
     const foundProduct = productsBrief.find(
-      (p) => p.barcode && p.barcode === trimmedBarcode
+      (p) =>
+        (p.barcode && p.barcode === trimmedBarcode) ||
+        (p?.slug && p.slug === trimmedBarcode)
     );
 
     if (foundProduct) {
@@ -250,7 +264,7 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
     () =>
       productsBrief.map((p) => ({
         value: String(p.id),
-        label: `${p.name} - ${p.price} $`,
+        label: `${p.name}`,
       })),
     [productsBrief]
   );
@@ -273,6 +287,10 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
     formData.append("fullName", user.fullName);
     formData.append("RepName", user.fullName);
     formData.append("doctorId", data.doctorId.toString());
+    const discountNumber = Number(data.discount ?? 0) || 0;
+    const paidNumber = Number(data.paid ?? 0) || 0;
+    formData.append("discount", String(discountNumber));
+    formData.append("totalPaid", String(paidNumber));
     if (user.email || data.email) {
       formData.append("email", user.email || data.email || "");
     }
@@ -320,9 +338,19 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
   const productColumns: Column<OrderProduct>[] = useMemo(
     () => [
       {
+        accessorKey: "rowIndex",
+        header: "#",
+        cell: ({ row }) => (
+          <span className="text-(--base-800)">{row.rowIndex}</span>
+        ),
+        isRendering: true,
+      },
+      {
         accessorKey: "name",
         header: "اسم المنتج",
-        cell: ({ row }) => <div className="text-sm">{row.name}</div>,
+        cell: ({ row }) => (
+          <span className="text-(--base-800)">{row.name}</span>
+        ),
         isRendering: true,
       },
       {
@@ -331,18 +359,18 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
         cell: ({ row }) => {
           const index = products.findIndex((p) => p.id === row.id);
           return (
-            <Input
-              key={`quantity-${row.id}`}
+            <input
               type="number"
-              min="1"
+              min={1}
+              className="w-24 px-2 py-1 border rounded"
               defaultValue={row.quantity}
+              disabled={isSubmitting || isLoadingProducts || isLoadingUser}
               onBlur={(e) => {
                 const value = parseInt(e.target.value) || 1;
                 if (value !== row.quantity) {
                   handleQuantityChange(index, value);
                 }
               }}
-              className="w-20"
             />
           );
         },
@@ -353,12 +381,14 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
         header: "السعر",
         cell: ({ row }) => {
           return (
-            <Input
+            <input
               type="number"
-              step="0.01"
-              value={row.price}
-              disabled
-              className="w-24"
+              min={0}
+              step={0.01}
+              readOnly
+              className="w-28 px-2 py-1 border rounded bg-gray-50"
+              defaultValue={row.price}
+              disabled={true}
             />
           );
         },
@@ -370,9 +400,11 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
         cell: ({ row }) => {
           const index = products.findIndex((p) => p.id === row.id);
           return (
-            <Input
-              key={`notes-${row.id}`}
+            <input
+              type="text"
+              className="w-64 px-2 py-1 border rounded"
               defaultValue={row.notes}
+              disabled={isSubmitting || isLoadingProducts || isLoadingUser}
               onBlur={(e) => {
                 const value = e.target.value;
                 if (value !== row.notes) {
@@ -380,7 +412,6 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
                 }
               }}
               placeholder="ملاحظات"
-              className="w-40"
             />
           );
         },
@@ -407,6 +438,7 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
               variant="outline"
               size="sm"
               onClick={() => removeProduct(index)}
+              disabled={isSubmitting || isLoadingProducts || isLoadingUser}
               className="text-red-500 hover:text-red-700"
             >
               <Icons.close />
@@ -416,29 +448,46 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
         isRendering: true,
       },
     ],
-    [products, handleQuantityChange, handleNotesChange, removeProduct]
+    [
+      products,
+      handleQuantityChange,
+      handleNotesChange,
+      removeProduct,
+      isSubmitting,
+      isLoadingProducts,
+      isLoadingUser,
+    ]
   );
+
+  const productsTableData: OrderProduct[] = useMemo(
+    () => products.map((p, idx) => ({ ...p, rowIndex: idx + 1 })),
+    [products]
+  );
+
+  // Totals summary values (live)
+  const subtotal = useMemo(() => {
+    return products.reduce((sum, p) => {
+      const price = Number.parseFloat(String(p.price ?? "0"));
+      const safePrice = Number.isFinite(price) ? price : 0;
+      const qty = Number(p.quantity ?? 0);
+      const safeQty = Number.isFinite(qty) ? qty : 0;
+      return sum + safePrice * safeQty;
+    }, 0);
+  }, [products]);
+  const totalAfterDiscount = Math.max(subtotal - discountValue, 0);
+  const remaining = Math.max(totalAfterDiscount - Math.max(paidValue, 0), 0);
 
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
-      className="w-full mt-4 space-y-6"
+      className="w-full mt-4 space-y-4"
       suppressHydrationWarning
     >
       {/* Basic Information Section */}
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-(--silver) border-b pb-2">
+        <h3 className="text-lg font-semibold text-gray-700">
           المعلومات الأساسية
         </h3>
-
-        {user && (
-          <div className="p-3 bg-gray-50 rounded-lg border">
-            <div className="text-sm text-gray-600 mb-1">اسم المستخدم</div>
-            <div className="text-lg font-semibold text-gray-900">
-              {user.fullName}
-            </div>
-          </div>
-        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <BaseSelect
@@ -450,9 +499,20 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
                 ? doctorOptions.find((o) => o.value === String(doctorId))
                 : null
             }
+            isDisabled={isSubmitting || isLoadingUser}
             onChange={(opt) => {
               if (opt && !Array.isArray(opt) && "value" in opt) {
-                setValue("doctorId", parseInt(opt.value));
+                setValue("doctorId", parseInt(opt.value), {
+                  shouldValidate: true,
+                  shouldDirty: true,
+                  shouldTouch: true,
+                });
+              } else {
+                setValue("doctorId", 0, {
+                  shouldValidate: true,
+                  shouldDirty: true,
+                  shouldTouch: true,
+                });
               }
             }}
             error={
@@ -466,20 +526,18 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
       </div>
 
       {/* Barcode Scanner Section */}
-      <div className="space-y-4 ">
-        <h3 className="text-lg font-semibold text-(--silver) border-b pb-2">
-          مسح الباركود
-        </h3>
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-gray-700">مسح الباركود</h3>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
             id="barcode"
-            label="الباركود"
-            placeholder="امسح الباركود أو أدخله يدوياً ثم اضغط Enter"
+            label="الباركود او QR"
+            placeholder="امسح الباركود أو QR"
             value={barcodeValue}
             onChange={handleBarcodeChange}
             onKeyDown={handleBarcodeKeyDown}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isLoadingProducts || isLoadingUser}
             ref={barcodeInputRef}
             autoFocus
           />
@@ -488,7 +546,7 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
             placeholder="اختر منتج أو استخدم الباركود"
             options={productOptions}
             value={selectedProductOption}
-            isDisabled={isLoadingProducts}
+            isDisabled={isSubmitting || isLoadingProducts || isLoadingUser}
             isClearable
             onChange={(opt) => {
               if (!opt || Array.isArray(opt) || !("value" in opt)) {
@@ -515,27 +573,115 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
           />
         </div>
       </div>
-
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Input
+          id="discount"
+          label="الخصم"
+          placeholder="0"
+          type="number"
+          min="0"
+          step="0.01"
+          defaultValue={0}
+          disabled={isSubmitting || isLoadingUser}
+          {...register("discount", {
+            setValueAs: (v) => {
+              if (v === "" || v === null || v === undefined) return 0;
+              const num = Number(v);
+              return Number.isFinite(num) ? num : 0;
+            },
+          })}
+          error={errors.discount?.message}
+        />
+        <Input
+          id="paid"
+          label="المبلغ المدفوع "
+          placeholder="0"
+          type="number"
+          min="0"
+          step="0.01"
+          defaultValue={0}
+          disabled={isSubmitting || isLoadingUser}
+          {...register("paid", {
+            setValueAs: (v) => {
+              if (v === "" || v === null || v === undefined) return 0;
+              const num = Number(v);
+              return Number.isFinite(num) ? num : 0;
+            },
+          })}
+          error={errors.paid?.message}
+        />
+      </div>
       {/* Products Table Section */}
       {products.length > 0 && (
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-(--silver) border-b pb-2">
-            المنتجات
-          </h3>
+          <h3 className="text-lg font-semibold text-gray-700">منتجات الطلب</h3>
 
-          <Table data={products} columns={productColumns} />
+          <Table data={productsTableData} columns={productColumns} />
+
+          <div className="mt-4 ml-auto w-full max-w-md">
+            <div className="rounded-lg border border-(--base-200) bg-white shadow-sm p-4">
+              <div className="text-sm text-(--base-500) mb-2">
+                ملخص الفاتورة
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-(--base-600)">المجموع الفرعي</span>
+                  <span className="font-semibold text-(--base-900)">
+                    {subtotal.toFixed(2)} $
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-t border-(--base-200) pt-2">
+                  <span className="text-(--base-600)">الخصم</span>
+                  <span className="font-semibold text-red-600">
+                    -{discountValue.toFixed(2)} $
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-t border-(--base-200) pt-2">
+                  <span className="text-(--base-600)">الإجمالي بعد الخصم</span>
+                  <span className="font-semibold text-(--base-900)">
+                    {totalAfterDiscount.toFixed(2)} $
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-t border-(--base-200) pt-2">
+                  <span className="text-(--base-600)">المدفوع</span>
+                  <span className="font-semibold text-green-600">
+                    {Math.max(paidValue, 0).toFixed(2)} $
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xl border-t border-(--base-200) pt-2">
+                  <span className="text-(--base-600)">المتبقي</span>
+                  <span className="font-semibold text-red-600">
+                    {remaining.toFixed(2)} $
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
-      <div className="mt-6 flex items-center gap-3">
-        <Button className="capitalize" type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "جاري الإنشاء..." : "إنشاء طلب"}
+      <div className="flex items-center gap-3 pt-4">
+        <Button
+          type="submit"
+          disabled={isSubmitting || isLoadingProducts || isLoadingUser}
+          className="flex items-center gap-2"
+        >
+          {isSubmitting ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              جاري الإنشاء...
+            </>
+          ) : (
+            <>
+              <Icons.add className="w-4 h-4" />
+              إنشاء طلب
+            </>
+          )}
         </Button>
         <Button
-          className="capitalize"
           variant="ghost"
           onClick={onClose}
-          disabled={isSubmitting}
+          disabled={isSubmitting || isLoadingProducts || isLoadingUser}
         >
           إلغاء
         </Button>

@@ -92,10 +92,18 @@ export const updateOrder = async (
 
   // Add basic order fields (add all fields regardless of value)
   if (orderData.discount !== undefined) {
-    formData.append("discount", orderData.discount?.toString() || "");
+    const discountNumber = Number(orderData.discount ?? 0);
+    formData.append(
+      "discount",
+      String(Number.isFinite(discountNumber) ? discountNumber : 0)
+    );
   }
   if (orderData.paid !== undefined) {
-    formData.append("paid", orderData.paid?.toString() || "");
+    const paidNumber = Number(orderData.paid ?? 0);
+    formData.append(
+      "totalPaid",
+      String(Number.isFinite(paidNumber) ? paidNumber : 0)
+    );
   }
   if (orderData.phone !== undefined) {
     formData.append("phone", orderData.phone || "");
