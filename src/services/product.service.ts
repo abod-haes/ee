@@ -185,7 +185,7 @@ export const updateProduct = async (
     formData.append("barcode", productData.barcode);
   }
 
-  // Add attributes in the correct format: attributes[0][value] and attributes[0][categoryAttributeId]
+  // Add attributes in the correct format: attributes[0][value], attributes[0][categoryAttributeId], and attributes[0][id]
   if (productData.attributes && productData.attributes.length > 0) {
     productData.attributes.forEach((attr, index) => {
       formData.append(`attributes[${index}][value]`, attr.value);
@@ -193,6 +193,12 @@ export const updateProduct = async (
         `attributes[${index}][categoryAttributeId]`,
         attr.categoryAttributeId.toString()
       );
+      // Always include id: use existing id for updates, empty string for new attributes
+      if (attr.id !== undefined && attr.id !== null) {
+        formData.append(`attributes[${index}][id]`, attr.id.toString());
+      } else {
+        formData.append(`attributes[${index}][id]`, "");
+      }
     });
   }
 
@@ -203,12 +209,12 @@ export const updateProduct = async (
     });
   }
 
+  // Add _method for PUT override
+  formData.append("_method", "PUT");
+
   const response = await axiosInstance.post(
     API_BASE_URL + `/products/${id}`,
-    {
-      ...productData,
-      _method: "PUT",
-    },
+    formData,
     {
       headers: {
         "Content-Type": "multipart/form-data",

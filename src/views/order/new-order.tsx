@@ -679,6 +679,7 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
           )}
         </Button>
         <Button
+          type="button"
           variant="ghost"
           onClick={onClose}
           disabled={isSubmitting || isLoadingProducts || isLoadingUser}

@@ -45,11 +45,14 @@ export default function Products() {
     number | undefined
   >(undefined);
 
+  // Use child category if selected, otherwise use parent category
+  const finalCategoryId = selectedCategoryId ?? selectedParentCategoryId;
+
   const { data, isLoading, error, refetch } = usePaginatedProducts({
     page,
     limit,
     text: search,
-    categoryId: selectedCategoryId,
+    categoryId: finalCategoryId,
   });
   const {
     data: categories,
@@ -187,7 +190,9 @@ export default function Products() {
       header: "تاريخ الإنتاج",
       cell: ({ row }) => (
         <div className="text-sm text-gray-600">
-          {new Date(row.productionDate).toLocaleDateString("en-SA")}
+          {row.productionDate
+            ? new Date(row.productionDate).toLocaleDateString("en-SA")
+            : "-"}
         </div>
       ),
       isRendering: true,
@@ -322,7 +327,7 @@ export default function Products() {
               print-color-adjust: exact;
             }
             .sticker {
-              width: 5cm;
+              width: 4cm;
               height: 3cm;
               display: flex;
               flex-direction: column;
@@ -368,7 +373,7 @@ export default function Products() {
               .no-print { display: none !important; }
               @page {
                 margin: 0 !important;
-                size: 5cm 3cm;
+                size: 4cm 3cm;
               }
               @page :first {
                 margin: 0 !important;
@@ -417,7 +422,7 @@ export default function Products() {
           @media print {
             @page {
               margin: 0 !important;
-              size: 5cm 3cm;
+              size: 4cm 3cm;
             }
             @page :first {
               margin: 0 !important;

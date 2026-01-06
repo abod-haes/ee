@@ -282,16 +282,16 @@ export default function Order() {
             <Icons.edit className="w-4 h-4" />
           </Button>
 
-            <PrintOrderButton
-              orderId={row.id}
-              variant="outline"
-              size="icon"
-              title="طباعة"
-              aria-label="طباعة"
-              className="w-8 h-8 rounded-full bg-green-100 text-green-600 hover:bg-green-200 border border-green-200 transition-all duration-300 hover:scale-105 flex items-center justify-center"
-            >
-              <Icons.printer className="w-4 h-4" />
-            </PrintOrderButton>
+          <PrintOrderButton
+            orderId={row.id}
+            variant="outline"
+            size="icon"
+            title="طباعة"
+            aria-label="طباعة"
+            className="w-8 h-8 rounded-full bg-green-100 text-green-600 hover:bg-green-200 border border-green-200 transition-all duration-300 hover:scale-105 flex items-center justify-center"
+          >
+            <Icons.printer className="w-4 h-4" />
+          </PrintOrderButton>
         </div>
       ),
       isRendering: true,

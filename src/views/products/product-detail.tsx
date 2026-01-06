@@ -34,6 +34,10 @@ const productSchema = z.object({
       z.object({
         value: z.string().optional(),
         categoryAttributeId: z.number().optional(),
+        id: z.number().optional(),
+        // Track original values loaded from server so we can decide whether to send id
+        originalCategoryAttributeId: z.number().optional(),
+        originalId: z.number().optional(),
       })
     )
     .optional(),
@@ -79,6 +83,7 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
     formState: { errors },
     reset,
     setValue,
+    getValues,
     control,
   } = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
@@ -89,8 +94,9 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
 
   const {
     fields: attributeFields,
-    append,
     remove,
+    append,
+    replace,
   } = useFieldArray({
     control,
     name: "attributes",
@@ -118,23 +124,91 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
     ? categories.find((cat) => cat.id === selectedCategoryId)
     : selectedParentCategory;
 
+  console.log("[Category Selection] Debug:", {
+    selectedCategoryId,
+    selectedParentCategoryId,
+    selectedCategory: selectedCategory
+      ? {
+          id: selectedCategory.id,
+          name: selectedCategory.name,
+          attributes: selectedCategory.attributes,
+          attributesCount: selectedCategory.attributes?.length || 0,
+        }
+      : null,
+    allCategories: categories.map((cat) => ({
+      id: cat.id,
+      name: cat.name,
+      attributesCount: cat.attributes?.length || 0,
+    })),
+  });
+
+  const watchedAttributes = useWatch({ control, name: "attributes" });
+
+  console.log("[Watched Attributes] Current state:", watchedAttributes);
+
+  // When category changes, clear all attributes
+  const initializedCategoryRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (!selectedCategoryId) return;
+    if (initializedCategoryRef.current === undefined) {
+      initializedCategoryRef.current = selectedCategoryId;
+      return;
+    }
+    if (initializedCategoryRef.current !== selectedCategoryId) {
+      initializedCategoryRef.current = selectedCategoryId;
+      // Clear all attributes when category changes
+      replace([]);
+    }
+  }, [replace, selectedCategoryId]);
+
+  // If there are no saved attributes, show one empty row so user can select.
+  useEffect(() => {
+    if (!selectedCategory || (selectedCategory.attributes?.length ?? 0) === 0)
+      return;
+    if (attributeFields.length === 0) {
+      append({ value: "", categoryAttributeId: 0 });
+    }
+  }, [append, attributeFields.length, selectedCategory]);
+
   // Reset form when product data is loaded
   useEffect(() => {
     if (productData) {
+      console.log("[Reset Form] Product data loaded:", {
+        productData,
+        attributes: productData.attributes,
+        categoryId: productData.categoryId,
+        childCategoryId: productData.childCategoryId,
+      });
       const productCategoryId = productData.categoryId;
+      const productChildCategoryId = productData.childCategoryId ?? undefined;
 
-      // Find if the category is a child or parent
-      const productCategory = categories.find(
-        (cat) => cat.id === productCategoryId
-      );
-      const isChildCategory =
-        productCategory?.categoryId !== null &&
-        productCategory?.categoryId !== undefined;
+      // Determine parent/child ids for the form:
+      // - If API provides childCategoryId, we should select that as the child
+      // - Otherwise fall back to categoryId and infer whether it's child or parent from categories tree
+      let parentCategoryId: number | undefined;
+      let categoryId: number | undefined;
 
-      // Set parent category ID (local-only form field)
-      const parentCategoryId = isChildCategory
-        ? productCategory?.categoryId ?? undefined
-        : productCategoryId;
+      if (productChildCategoryId) {
+        const childCategory = categories.find(
+          (cat) => cat.id === productChildCategoryId
+        );
+        parentCategoryId = (childCategory?.categoryId ?? productCategoryId) as
+          | number
+          | undefined;
+        categoryId = productChildCategoryId;
+      } else {
+        const productCategory = categories.find(
+          (cat) => cat.id === productCategoryId
+        );
+        const isChildCategory =
+          productCategory?.categoryId !== null &&
+          productCategory?.categoryId !== undefined;
+
+        parentCategoryId = isChildCategory
+          ? productCategory?.categoryId ?? undefined
+          : productCategoryId;
+        categoryId = productCategoryId;
+      }
 
       reset({
         name: productData.name,
@@ -154,15 +228,31 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
         productionDate: productData.productionDate.split("T")[0], // Format date for input
         medicalNecessity: productData.medicalNecessity || "",
         parentCategoryId,
-        categoryId: productData.categoryId,
+        categoryId,
         barcode: productData.barcode || "",
-        attributes: (productData.attributes || []).map((attr) => ({
-          value: attr.value,
-          categoryAttributeId: attr.categoryAttributeId,
-        })),
+        attributes: (productData.attributes || []).map((attr) => {
+          console.log("[Reset Form] Mapping attribute:", {
+            originalAttr: attr,
+            id: attr.id,
+            value: attr.value,
+            categoryAttributeId: attr.categoryAttributeId,
+          });
+          return {
+            id: attr.id,
+            value: attr.value,
+            categoryAttributeId: attr.categoryAttributeId,
+            // Persist original to compare later
+            originalCategoryAttributeId: attr.categoryAttributeId,
+            originalId: attr.id,
+          };
+        }),
       });
+      console.log(
+        "[Reset Form] Form reset completed with attributes:",
+        getValues("attributes")
+      );
     }
-  }, [productData, reset, categories]);
+  }, [productData, reset, categories, getValues]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -181,10 +271,19 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
             (attr.value ?? "").trim() !== "" &&
             (attr.categoryAttributeId ?? 0) > 0
         )
-        .map((attr) => ({
-          value: (attr.value ?? "").trim(),
-          categoryAttributeId: attr.categoryAttributeId as number,
-        }));
+        .map((attr) => {
+          const keepId =
+            (attr.id ?? undefined) !== undefined &&
+            (attr.originalCategoryAttributeId ?? undefined) !== undefined &&
+            Number(attr.originalCategoryAttributeId) ===
+              Number(attr.categoryAttributeId);
+          return {
+            value: (attr.value ?? "").trim(),
+            categoryAttributeId: attr.categoryAttributeId as number,
+            // Keep id only if categoryAttributeId didn't change; otherwise omit
+            id: keepId ? (attr.id as number) : (undefined as unknown as number),
+          };
+        });
 
       // Use child category if selected, otherwise use parent category
       const finalCategoryId = data.categoryId || selectedParentCategoryId;
@@ -397,65 +496,189 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
             </h3>
 
             <div className="space-y-3">
-              {attributeFields.map((field, index) => (
-                <div key={index} className="grid grid-cols-4 gap-2">
-                  <div className="col-span-1">
-                    <BaseSelect
-                      placeholder="اختر الخاصية"
-                      options={[
-                        { label: "اختر الخاصية", value: "0" },
-                        ...selectedCategory.attributes.map((categoryAttr) => ({
-                          label: categoryAttr.name,
-                          value: categoryAttr.id.toString(),
-                        })),
-                      ]}
-                      value={
-                        field.categoryAttributeId
-                          ? {
-                              label:
-                                selectedCategory.attributes.find(
-                                  (cat) => cat.id === field.categoryAttributeId
-                                )?.name || "",
-                              value: String(field.categoryAttributeId),
-                            }
-                          : null
+              {attributeFields.map((field, index) => {
+                const attributeOptions = selectedCategory.attributes.map(
+                  (categoryAttr) => ({
+                    label: categoryAttr.name,
+                    value: categoryAttr.id.toString(),
+                  })
+                );
+
+                // Get current attribute value - try watchedAttributes first, then getValues, then field
+                const currentAttribute = watchedAttributes?.[index] as
+                  | {
+                      categoryAttributeId?: number;
+                      id?: number;
+                      value?: string;
+                    }
+                  | undefined;
+
+                // Fallback to getValues if watchedAttributes is not available
+                const fallbackAttribute =
+                  currentAttribute ||
+                  (getValues("attributes")?.[index] as
+                    | {
+                        categoryAttributeId?: number;
+                        id?: number;
+                        value?: string;
                       }
-                      onChange={(selectedOption) => {
-                        if (
-                          selectedOption &&
-                          !Array.isArray(selectedOption) &&
-                          "value" in selectedOption
-                        ) {
-                          const categoryAttributeId = parseInt(
-                            selectedOption.value
+                    | undefined);
+
+                // Get categoryAttributeId from multiple sources - prioritize form state
+                const currentCategoryAttributeId =
+                  fallbackAttribute?.categoryAttributeId ??
+                  (field as { categoryAttributeId?: number })
+                    ?.categoryAttributeId ??
+                  0;
+
+                // Debug: Log values to help troubleshoot
+                console.log(`[Attribute ${index}] Debug Info:`, {
+                  currentCategoryAttributeId,
+                  currentCategoryAttributeIdType:
+                    typeof currentCategoryAttributeId,
+                  attributeOptions,
+                  attributeOptionsCount: attributeOptions.length,
+                  field: field,
+                  fieldCategoryAttributeId: (
+                    field as { categoryAttributeId?: number }
+                  )?.categoryAttributeId,
+                  currentAttribute,
+                  fallbackAttribute,
+                  watchedAttributes: watchedAttributes?.[index],
+                  allWatchedAttributes: watchedAttributes,
+                  selectedCategory: selectedCategory?.name,
+                  selectedCategoryAttributes: selectedCategory?.attributes,
+                });
+
+                // Find the matching option - ensure proper type comparison
+                // Try both string and number comparison to be safe
+                const selectedAttributeOption =
+                  currentCategoryAttributeId > 0 && attributeOptions.length > 0
+                    ? attributeOptions.find(
+                        (o) =>
+                          Number(o.value) ===
+                            Number(currentCategoryAttributeId) ||
+                          o.value === String(currentCategoryAttributeId)
+                      ) || null
+                    : null;
+
+                console.log(`[Attribute ${index}] Selected Option:`, {
+                  selectedAttributeOption,
+                  foundMatch: selectedAttributeOption !== null,
+                  searchValue: currentCategoryAttributeId,
+                  availableValues: attributeOptions.map((o) => ({
+                    label: o.label,
+                    value: o.value,
+                    valueAsNumber: Number(o.value),
+                  })),
+                });
+
+                return (
+                  <div
+                    key={field.id || index}
+                    className="grid grid-cols-4 gap-2"
+                  >
+                    <div className="col-span-1">
+                      <BaseSelect
+                        placeholder="اختر الخاصية"
+                        options={attributeOptions}
+                        value={selectedAttributeOption}
+                        onChange={(selectedOption) => {
+                          console.log(
+                            `[Attribute ${index}] onChange triggered:`,
+                            {
+                              selectedOption,
+                              currentAttribute,
+                              index,
+                            }
                           );
-                          setValue(
-                            `attributes.${index}.categoryAttributeId`,
-                            categoryAttributeId
-                          );
-                        }
-                      }}
-                    />
+                          if (
+                            selectedOption &&
+                            !Array.isArray(selectedOption) &&
+                            "value" in selectedOption
+                          ) {
+                            const categoryAttributeId = parseInt(
+                              selectedOption.value
+                            );
+                            // Decide whether to keep existing id based on originalCategoryAttributeId
+                            const originalCategoryAttributeId = getValues(
+                              `attributes.${index}.originalCategoryAttributeId`
+                            ) as number | undefined;
+                            const existingId = getValues(
+                              `attributes.${index}.id`
+                            ) as number | undefined;
+                            const shouldKeepId =
+                              !!existingId &&
+                              !!originalCategoryAttributeId &&
+                              Number(originalCategoryAttributeId) ===
+                                Number(categoryAttributeId);
+                            console.log(
+                              `[Attribute ${index}] Setting values:`,
+                              {
+                                categoryAttributeId,
+                                existingId,
+                                originalCategoryAttributeId,
+                                shouldKeepId,
+                                attributePath: `attributes.${index}.categoryAttributeId`,
+                              }
+                            );
+                            setValue(
+                              `attributes.${index}.categoryAttributeId`,
+                              categoryAttributeId
+                            );
+                            // Keep id only if key unchanged; otherwise clear it
+                            if (shouldKeepId) {
+                              setValue(
+                                `attributes.${index}.id`,
+                                existingId as number
+                              );
+                            } else {
+                              setValue(
+                                `attributes.${index}.id`,
+                                undefined as unknown as number
+                              );
+                            }
+                            console.log(
+                              `[Attribute ${index}] After setValue, form state:`,
+                              getValues("attributes")
+                            );
+                          } else {
+                            // Clear the selection
+                            console.log(
+                              `[Attribute ${index}] Clearing selection`
+                            );
+                            setValue(
+                              `attributes.${index}.categoryAttributeId`,
+                              0
+                            );
+                            setValue(
+                              `attributes.${index}.id`,
+                              undefined as unknown as number
+                            );
+                          }
+                        }}
+                      />
+                    </div>
+                    <div className="col-span-3 flex items-center gap-2">
+                      <Input
+                        {...register(`attributes.${index}.value`)}
+                        placeholder="أدخل القيمة"
+                        className="flex-1"
+                      />
+                      {attributeFields.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => remove(index)}
+                        >
+                          حذف
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <div className="col-span-3 flex items-center gap-2">
-                    <Input
-                      {...register(`attributes.${index}.value`)}
-                      placeholder="أدخل القيمة"
-                      className="flex-1"
-                    />
-                    {attributeFields.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => remove(index)}
-                      >
-                        حذف
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               <Button
                 type="button"
                 variant="outline"

@@ -96,28 +96,18 @@ const AddProductForm = ({ onClose, onAdded }: AddNewProductProp) => {
     }
   }, []);
 
-  // Auto-populate all attributes for the selected category so user can delete unneeded ones
+  // When category changes, reset to a single empty row (manual selection, no auto-fill).
   useEffect(() => {
-    if (
-      selectedCategory &&
-      Array.isArray(selectedCategory.attributes) &&
-      selectedCategory.attributes.length > 0
-    ) {
-      const initialAttributes = selectedCategory.attributes.map(
-        (categoryAttr) => ({
-          value: "",
-          categoryAttributeId: categoryAttr.id,
-        })
-      );
-      setAttributes(initialAttributes);
-    } else {
+    if (selectedCategory && (selectedCategory.attributes?.length ?? 0) > 0) {
       setAttributes([{ value: "", categoryAttributeId: 0 }]);
+    } else {
+      setAttributes([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCategoryId]);
+  }, [selectedCategoryId, selectedParentCategoryId, selectedCategory]);
 
   const addAttribute = () => {
-    setAttributes([...attributes, { value: "", categoryAttributeId: 0 }]);
+    setAttributes((prev) => [...prev, { value: "", categoryAttributeId: 0 }]);
   };
 
   const removeAttribute = (index: number) => {
@@ -340,26 +330,25 @@ const AddProductForm = ({ onClose, onAdded }: AddNewProductProp) => {
               {attributes.map((attr, index) => (
                 <div key={index} className="grid grid-cols-4 gap-2">
                   <div className="col-span-1">
-                    <BaseSelect
-                      placeholder="اختر الخاصية"
-                      options={[
-                        { label: "اختر الخاصية", value: "0" },
-                        ...selectedCategory.attributes.map((categoryAttr) => ({
+                    {(() => {
+                      const attributeOptions =
+                        selectedCategory?.attributes?.map((categoryAttr) => ({
                           label: categoryAttr.name,
                           value: categoryAttr.id.toString(),
-                        })),
-                      ]}
-                      value={
-                        attr.categoryAttributeId
-                          ? {
-                              label:
-                                selectedCategory.attributes.find(
-                                  (cat) => cat.id === attr.categoryAttributeId
-                                )?.name || "",
-                              value: attr.categoryAttributeId.toString(),
-                            }
-                          : null
-                      }
+                        })) ?? [];
+                      const selectedAttributeOption =
+                        (attr.categoryAttributeId ?? 0) > 0
+                          ? attributeOptions.find(
+                              (o) =>
+                                o.value === String(attr.categoryAttributeId)
+                            ) || null
+                          : null;
+
+                      return (
+                    <BaseSelect
+                      placeholder="اختر الخاصية"
+                      options={attributeOptions}
+                      value={selectedAttributeOption}
                       onChange={(selectedOption) => {
                         if (
                           selectedOption &&
@@ -377,6 +366,8 @@ const AddProductForm = ({ onClose, onAdded }: AddNewProductProp) => {
                         }
                       }}
                     />
+                      );
+                    })()}
                   </div>
                   <div className="col-span-3 flex items-center gap-2">
                     <Input

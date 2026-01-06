@@ -1,4 +1,5 @@
 export interface ProductAttribute {
+  id?: number;
   value: string;
   key: string;
   categoryAttributeId: number;
@@ -32,6 +33,7 @@ export interface Product {
   medicalNecessity: string;
   images: string[];
   categoryId: number;
+  childCategoryId?: number | null;
   barcode?: string;
   category: ProductCategory;
   attributes: ProductAttribute[];
@@ -83,6 +85,7 @@ export interface UpdateProductRequest {
   categoryId?: number;
   barcode?: string;
   attributes?: Array<{
+    id?: number | string;
     value: string;
     categoryAttributeId: number;
   }>;
