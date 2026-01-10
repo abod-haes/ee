@@ -29,7 +29,7 @@ export interface Product {
   storagePlace: string;
   storageLocation: string;
   minimum: number;
-  productionDate: string;
+  productionDate?: string | null;
   medicalNecessity: string;
   images: string[];
   categoryId: number;

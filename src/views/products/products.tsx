@@ -29,6 +29,8 @@ export default function Products() {
   const [selectedProduct, setSelectedProduct] = useState<string>("");
   const [selectedProductSlug, setSelectedProductSlug] = useState<string>("");
   const [selectedProductName, setSelectedProductName] = useState<string>("");
+  const [selectedProductManufacturer, setSelectedProductManufacturer] =
+    useState<string>("");
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
   const [currentImageIndex, setCurrentImageIndex] = useState<number>(0);
   const navigate = useNavigate();
@@ -250,6 +252,7 @@ export default function Products() {
               onClick={() => {
                 setSelectedProductSlug(row.slug);
                 setSelectedProductName(row.name);
+                setSelectedProductManufacturer(row.manufacturer || "");
                 qrDialog.onTrue();
               }}
               title="إنشاء رمز QR"
@@ -334,30 +337,42 @@ export default function Products() {
               align-items: center;
               justify-content: center;
               border: 1px solid #ddd;
-              padding: 0.2cm;
+              padding: 0.1cm 0.15cm;
               box-sizing: border-box;
             }
             h1 {
-              margin: 0 0 0.2cm 0;
+              margin: 0 0 0.05cm 0;
               color: #333;
-              font-size: 10pt;
+              font-size: 8pt;
               text-align: center;
-              line-height: 1.2;
+              line-height: 1.1;
+              max-width: 100%;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+            .manufacturer {
+              margin: 0 0 0.05cm 0;
+              color: #666;
+              font-size: 6pt;
+              text-align: center;
+              line-height: 1;
               max-width: 100%;
               overflow: hidden;
               text-overflow: ellipsis;
               white-space: nowrap;
             }
             .qr-container {
-              width: 2cm;
-              height: 2cm;
+              width: 1.8cm;
+              height: 1.8cm;
               display: flex;
               align-items: center;
               justify-content: center;
+              flex-shrink: 0;
             }
             img {
-              width: 2cm;
-              height: 2cm;
+              width: 1.8cm;
+              height: 1.8cm;
               display: block;
             }
             @media print {
@@ -397,6 +412,11 @@ export default function Products() {
         <body>
           <div class="sticker">
             <h1>${selectedProductName}</h1>
+            ${
+              selectedProductManufacturer
+                ? `<p class="manufacturer">${selectedProductManufacturer}</p>`
+                : ""
+            }
             <div class="qr-container">
               <img src="${qrImageUrl}" alt="QR Code" />
             </div>
@@ -788,6 +808,11 @@ export default function Products() {
             <h2 className="text-2xl font-bold text-(--silver) mb-2">
               {selectedProductName}
             </h2>
+            {selectedProductManufacturer && (
+              <p className="text-sm text-gray-600">
+                {selectedProductManufacturer}
+              </p>
+            )}
           </div>
           <div
             ref={qrRef}

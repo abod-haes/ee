@@ -124,27 +124,7 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
     ? categories.find((cat) => cat.id === selectedCategoryId)
     : selectedParentCategory;
 
-  console.log("[Category Selection] Debug:", {
-    selectedCategoryId,
-    selectedParentCategoryId,
-    selectedCategory: selectedCategory
-      ? {
-          id: selectedCategory.id,
-          name: selectedCategory.name,
-          attributes: selectedCategory.attributes,
-          attributesCount: selectedCategory.attributes?.length || 0,
-        }
-      : null,
-    allCategories: categories.map((cat) => ({
-      id: cat.id,
-      name: cat.name,
-      attributesCount: cat.attributes?.length || 0,
-    })),
-  });
-
   const watchedAttributes = useWatch({ control, name: "attributes" });
-
-  console.log("[Watched Attributes] Current state:", watchedAttributes);
 
   // When category changes, clear all attributes
   const initializedCategoryRef = useRef<number | undefined>(undefined);
@@ -173,12 +153,6 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
   // Reset form when product data is loaded
   useEffect(() => {
     if (productData) {
-      console.log("[Reset Form] Product data loaded:", {
-        productData,
-        attributes: productData.attributes,
-        categoryId: productData.categoryId,
-        childCategoryId: productData.childCategoryId,
-      });
       const productCategoryId = productData.categoryId;
       const productChildCategoryId = productData.childCategoryId ?? undefined;
 
@@ -225,32 +199,22 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
         storagePlace: productData.storagePlace || "",
         storageLocation: productData.storageLocation || "",
         minimum: productData.minimum || 0,
-        productionDate: productData.productionDate.split("T")[0], // Format date for input
+        productionDate: productData.productionDate
+          ? productData.productionDate.split("T")[0]
+          : "", // Format date for input, handle null
         medicalNecessity: productData.medicalNecessity || "",
         parentCategoryId,
         categoryId,
         barcode: productData.barcode || "",
-        attributes: (productData.attributes || []).map((attr) => {
-          console.log("[Reset Form] Mapping attribute:", {
-            originalAttr: attr,
-            id: attr.id,
-            value: attr.value,
-            categoryAttributeId: attr.categoryAttributeId,
-          });
-          return {
-            id: attr.id,
-            value: attr.value,
-            categoryAttributeId: attr.categoryAttributeId,
-            // Persist original to compare later
-            originalCategoryAttributeId: attr.categoryAttributeId,
-            originalId: attr.id,
-          };
-        }),
+        attributes: (productData.attributes || []).map((attr) => ({
+          id: attr.id,
+          value: attr.value,
+          categoryAttributeId: attr.categoryAttributeId,
+          // Persist original to compare later
+          originalCategoryAttributeId: attr.categoryAttributeId,
+          originalId: attr.id,
+        })),
       });
-      console.log(
-        "[Reset Form] Form reset completed with attributes:",
-        getValues("attributes")
-      );
     }
   }, [productData, reset, categories, getValues]);
 
@@ -531,25 +495,6 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
                     ?.categoryAttributeId ??
                   0;
 
-                // Debug: Log values to help troubleshoot
-                console.log(`[Attribute ${index}] Debug Info:`, {
-                  currentCategoryAttributeId,
-                  currentCategoryAttributeIdType:
-                    typeof currentCategoryAttributeId,
-                  attributeOptions,
-                  attributeOptionsCount: attributeOptions.length,
-                  field: field,
-                  fieldCategoryAttributeId: (
-                    field as { categoryAttributeId?: number }
-                  )?.categoryAttributeId,
-                  currentAttribute,
-                  fallbackAttribute,
-                  watchedAttributes: watchedAttributes?.[index],
-                  allWatchedAttributes: watchedAttributes,
-                  selectedCategory: selectedCategory?.name,
-                  selectedCategoryAttributes: selectedCategory?.attributes,
-                });
-
                 // Find the matching option - ensure proper type comparison
                 // Try both string and number comparison to be safe
                 const selectedAttributeOption =
@@ -562,17 +507,6 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
                       ) || null
                     : null;
 
-                console.log(`[Attribute ${index}] Selected Option:`, {
-                  selectedAttributeOption,
-                  foundMatch: selectedAttributeOption !== null,
-                  searchValue: currentCategoryAttributeId,
-                  availableValues: attributeOptions.map((o) => ({
-                    label: o.label,
-                    value: o.value,
-                    valueAsNumber: Number(o.value),
-                  })),
-                });
-
                 return (
                   <div
                     key={field.id || index}
@@ -584,14 +518,6 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
                         options={attributeOptions}
                         value={selectedAttributeOption}
                         onChange={(selectedOption) => {
-                          console.log(
-                            `[Attribute ${index}] onChange triggered:`,
-                            {
-                              selectedOption,
-                              currentAttribute,
-                              index,
-                            }
-                          );
                           if (
                             selectedOption &&
                             !Array.isArray(selectedOption) &&
@@ -612,16 +538,6 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
                               !!originalCategoryAttributeId &&
                               Number(originalCategoryAttributeId) ===
                                 Number(categoryAttributeId);
-                            console.log(
-                              `[Attribute ${index}] Setting values:`,
-                              {
-                                categoryAttributeId,
-                                existingId,
-                                originalCategoryAttributeId,
-                                shouldKeepId,
-                                attributePath: `attributes.${index}.categoryAttributeId`,
-                              }
-                            );
                             setValue(
                               `attributes.${index}.categoryAttributeId`,
                               categoryAttributeId
@@ -638,15 +554,8 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
                                 undefined as unknown as number
                               );
                             }
-                            console.log(
-                              `[Attribute ${index}] After setValue, form state:`,
-                              getValues("attributes")
-                            );
                           } else {
                             // Clear the selection
-                            console.log(
-                              `[Attribute ${index}] Clearing selection`
-                            );
                             setValue(
                               `attributes.${index}.categoryAttributeId`,
                               0

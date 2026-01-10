@@ -2,10 +2,7 @@ import { useCallback, useState } from "react";
 import { Button, type ButtonProps } from "@/components/base/button";
 import { Icons } from "@/lib/icons";
 import { getOrderById } from "@/services/order.service";
-import {
-  ORDER_STATUS_LABELS,
-  type OrderStatus,
-} from "@/types/order.type";
+import { ORDER_STATUS_LABELS, type OrderStatus } from "@/types/order.type";
 import { quantityTypes } from "@/constant/quantity-types";
 
 export type PrintOrderButtonProps = {
@@ -40,7 +37,8 @@ export default function PrintOrderButton({
       const discount = Number(orderData.discount) || 0;
 
       // Get payment information
-      const totalPaid = Number(orderData.totalPaid) || Number(orderData.paid) || 0;
+      const totalPaid =
+        Number(orderData.totalPaid) || Number(orderData.paid) || 0;
       const rest = Number(orderData.rest) || 0;
 
       // Get order status label
@@ -233,6 +231,30 @@ export default function PrintOrderButton({
               height: 40px;
               margin-top: 10px;
             }
+            .footer {
+              margin-top: 30px;
+              padding: 15px 20px;
+              border: 2px solid #ce1432;
+              background: white;
+              box-shadow: 0 2px 4px rgba(206, 20, 50, 0.1);
+              text-align: center;
+            }
+            .footer-content {
+              display: flex;
+              flex-wrap: wrap;
+              justify-content: center;
+              align-items: center;
+              gap: 15px;
+              font-size: 13px;
+              color: #333;
+            }
+            .footer-item {
+              white-space: nowrap;
+            }
+            .footer-separator {
+              color: #ce1432;
+              font-weight: bold;
+            }
             @media print {
               * {
                 -webkit-print-color-adjust: exact !important;
@@ -256,6 +278,13 @@ export default function PrintOrderButton({
               }
               .contact-info {
                 font-size: 11px !important;
+              }
+              .footer {
+                margin-top: 20px !important;
+              }
+              .footer-content {
+                font-size: 11px !important;
+                gap: 10px !important;
               }
               @page {
                 margin: 0 !important;
@@ -293,10 +322,14 @@ export default function PrintOrderButton({
                 </div>
               
               <div class="company-section">
-                <img src="${window.location.origin}/assets/images/top-logo.png" alt="شركة الشرق لطب الأسنان" class="logo-img" />
+                <img src="${
+                  window.location.origin
+                }/assets/images/top-logo.png" alt="شركة الشرق لطب الأسنان" class="logo-img" />
               </div>
               <div class="company-section">
-                <img src="${window.location.origin}/assets/images/botton-logo.png" alt="شركة الشرق لطب الأسنان" class="logo-img" />
+                <img src="${
+                  window.location.origin
+                }/assets/images/botton-logo.png" alt="شركة الشرق لطب الأسنان" class="logo-img" />
               </div>
             </div>
             
@@ -314,15 +347,21 @@ export default function PrintOrderButton({
           <div class="recipient-info">
             <div>
               <label>المطلوب من السيد:</label>
-              <input type="text" value="${orderData.doctor?.name || orderData.RepName || ""}" readonly />
+              <input type="text" value="${
+                orderData.doctor?.name || orderData.RepName || ""
+              }" readonly />
             </div>
             <div>
               <label>المحترم المقيم في:</label>
-              <input type="text" value="${orderData.doctor?.address || orderData.address || ""}" readonly />
+              <input type="text" value="${
+                orderData.doctor?.address || orderData.address || ""
+              }" readonly />
             </div>
             <div>
               <label>الهاتف:</label>
-              <input type="text" value="${orderData.doctor?.phone || orderData.phone || ""}" readonly />
+              <input type="text" value="${
+                orderData.doctor?.phone || orderData.phone || ""
+              }" readonly />
             </div>
           </div>
           
@@ -344,7 +383,9 @@ export default function PrintOrderButton({
                   ?.map(
                     (product) => `
                 <tr class="product-row">
-                  <td>${(product.quantity * product.productPrice).toFixed(2)} $</td>
+                  <td>${(product.quantity * product.productPrice).toFixed(
+                    2
+                  )} $</td>
                   <td>${product.product?.name || "-"}</td>
                   <td>${product.quantity}</td>
                   <td>${
@@ -372,20 +413,39 @@ export default function PrintOrderButton({
               discount > 0
                 ? `<div class="total-row">
                     <span class="total-label">الخصم:</span>
-                    <span class="total-amount" style="color: #dc2626;">-${discount.toFixed(2)} $</span>
+                    <span class="total-amount" style="color: #dc2626;">-${discount.toFixed(
+                      2
+                    )} $</span>
                   </div>`
                 : ""
             }
           
             <div class="total-row" style="margin-top: 10px;">
               <span class="total-label">المبلغ المدفوع:</span>
-              <span class="total-amount" style="color: #16a34a;">${totalPaid.toFixed(2)} $</span>
+              <span class="total-amount" style="color: #16a34a;">${totalPaid.toFixed(
+                2
+              )} $</span>
             </div>
             <div class="total-row" style="margin-top: 10px;">
               <span class="total-label">المبلغ المتبقي:</span>
-              <span class="total-amount" style="color: #dc2626;">${rest.toFixed(2)} $</span>
+              <span class="total-amount" style="color: #dc2626;">${rest.toFixed(
+                2
+              )} $</span>
             </div>
-            <div class="no-other">لاغير</div>
+          </div>
+
+          <div class="footer">
+            <div class="footer-content">
+              <span class="footer-item">021 222 40 72</span>
+              <span class="footer-separator">|</span>
+              <span class="footer-item">0962 476408</span>
+              <span class="footer-separator">|</span>
+              <span class="footer-item">0933 495867</span>
+              <span class="footer-separator">|</span>
+              <span class="footer-item">سوريا - حلب - الجميلية</span>
+              <span class="footer-separator">|</span>
+              <span class="footer-item">أمام الحكم العسكرية</span>
+            </div>
           </div>
 
         </body>
@@ -489,5 +549,3 @@ export default function PrintOrderButton({
     </Button>
   );
 }
-
-
