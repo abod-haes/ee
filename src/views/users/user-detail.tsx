@@ -13,14 +13,7 @@ import { userKeys } from "@/hook/useUser";
 
 const userSchema = z.object({
   fullName: z.string().min(1, { message: "الاسم مطلوب" }),
-  email: z
-    .union([
-      z.string().email({ message: "البريد الإلكتروني غير صحيح" }),
-      z.literal(""),
-      z.null(),
-      z.undefined(),
-    ])
-    .optional(),
+  email: z.string().optional(),
   userName: z.string().min(1, { message: "اسم المستخدم مطلوب" }),
   userType: z.string().min(1, { message: "نوع المستخدم مطلوب" }),
   password: z
@@ -197,9 +190,7 @@ const EditUserForm = ({ id, onClose, onAdded }: EditUserProp) => {
       <Input
         id="email"
         label="البريد الإلكتروني "
-        disabled={true}
-        type="email"
-        className="!cursor-not-allowed hover:border-border"
+        placeholder="أدخل البريد الإلكتروني (اختياري)"
         {...register("email")}
         error={errors.email?.message}
       />
