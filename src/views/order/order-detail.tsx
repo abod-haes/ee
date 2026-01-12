@@ -1,13 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { orderSchema, type OrderSchemaType } from "@/lib/schema";
 import { Input } from "@/components/base/input";
 import { Button } from "@/components/base/button";
+import { BaseSelect, type Option } from "@/components/base/select";
 import { useOrder, useUpdateOrder } from "@/hook/useOrder";
 import { Icons } from "@/lib/icons";
 import Table, { type Column } from "@/components/table/table";
 import { quantityTypes } from "@/constant/quantity-types";
+import {
+  getProductsBrief,
+  type ProductBrief,
+} from "@/services/product.service";
+import toast from "react-hot-toast";
 
 export type EditOrderProp = {
   id: string;
@@ -16,7 +22,8 @@ export type EditOrderProp = {
 };
 
 type OrderProductEditRow = {
-  id: number;
+  id: number; // cart_product id (0 for new products)
+  productId?: number; // actual product id (for new products)
   quantity: number;
   notes: string;
   price: number;
@@ -26,6 +33,12 @@ type OrderProductEditRow = {
 
 const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
   const [products, setProducts] = useState<OrderProductEditRow[]>([]);
+  const [productsBrief, setProductsBrief] = useState<ProductBrief[]>([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  const [selectedProductOption, setSelectedProductOption] =
+    useState<Option | null>(null);
+  const barcodeInputRef = useRef<HTMLInputElement>(null);
+  const [barcodeValue, setBarcodeValue] = useState("");
 
   const {
     data: orderData,
@@ -43,6 +56,23 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
   } = useForm<OrderSchemaType>({
     resolver: zodResolver(orderSchema),
   });
+
+  // Load products brief
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        setIsLoadingProducts(true);
+        const productsData = await getProductsBrief();
+        setProductsBrief(productsData);
+      } catch (error) {
+        console.error("Error loading products:", error);
+        toast.error("فشل في تحميل المنتجات");
+      } finally {
+        setIsLoadingProducts(false);
+      }
+    };
+    loadProducts();
+  }, []);
 
   // Reset form when order data is loaded
   useEffect(() => {
@@ -73,7 +103,7 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
       discount: data.discount,
       paid: data.paid,
       products: products.map((p) => ({
-        id: p.id,
+        id: p.id === 0 && p.productId ? p.productId : p.id, // Use productId for new products
         quantity: p.quantity,
         notes: p.notes,
         price: p.price,
@@ -95,6 +125,92 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
     );
   };
 
+  const focusBarcodeInput = useCallback(() => {
+    requestAnimationFrame(() => {
+      barcodeInputRef.current?.focus();
+      requestAnimationFrame(() => barcodeInputRef.current?.focus());
+    });
+  }, []);
+
+  const addProductToOrder = useCallback((foundProduct: ProductBrief) => {
+    setProducts((prev) => {
+      const existingIndex = prev.findIndex(
+        (p) => p.productName === foundProduct.name
+      );
+      if (existingIndex >= 0) {
+        const next = [...prev];
+        next[existingIndex] = {
+          ...next[existingIndex],
+          quantity: next[existingIndex].quantity + 1,
+        };
+        toast.success(`تم زيادة الكمية لـ ${foundProduct.name}`, {
+          id: `order-product-${foundProduct.id}-inc`,
+        });
+        return next;
+      }
+
+      // Add new product (id will be 0 for new products, will be set by backend)
+      toast.success(`تم إضافة ${foundProduct.name}`, {
+        id: `order-product-${foundProduct.id}-add`,
+      });
+      return [
+        ...prev,
+        {
+          id: 0, // New product, backend will assign proper cart_product id
+          productId: foundProduct.id, // Store actual product id for new products
+          quantity: 1,
+          notes: "",
+          price: Number(foundProduct.price),
+          productName: foundProduct.name,
+          quantityType: 0, // Will be updated from backend after save
+        },
+      ];
+    });
+  }, []);
+
+  const searchProductByBarcode = useCallback(() => {
+    if (isLoadingProducts || productsBrief.length === 0) {
+      toast("جاري تحميل المنتجات...");
+      focusBarcodeInput();
+      return;
+    }
+    if (!barcodeValue || !barcodeValue.trim()) {
+      return;
+    }
+
+    const trimmedBarcode = barcodeValue.trim();
+    const foundProduct = productsBrief.find(
+      (p) =>
+        (p.barcode && p.barcode === trimmedBarcode) ||
+        (p?.slug && p.slug === trimmedBarcode)
+    );
+
+    if (foundProduct) {
+      addProductToOrder(foundProduct);
+      setBarcodeValue("");
+      focusBarcodeInput();
+    } else {
+      toast.error("المنتج غير موجود", { id: `order-product-notfound` });
+    }
+  }, [
+    barcodeValue,
+    productsBrief,
+    addProductToOrder,
+    focusBarcodeInput,
+    isLoadingProducts,
+  ]);
+
+  const handleBarcodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setBarcodeValue(e.target.value);
+  };
+
+  const handleBarcodeKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      searchProductByBarcode();
+    }
+  };
+
   const handleProductChange = <K extends keyof OrderProductEditRow>(
     index: number,
     field: K,
@@ -108,6 +224,10 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
     setProducts(newProducts);
   };
 
+  const removeProduct = useCallback((index: number) => {
+    setProducts((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
   type ProductRow = {
     rowIndex: number;
     id: number;
@@ -117,6 +237,15 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
     notes: string;
     quantityType: number;
   };
+
+  const productOptions: Option[] = useMemo(
+    () =>
+      productsBrief.map((p) => ({
+        value: String(p.id),
+        label: `${p.name}`,
+      })),
+    [productsBrief]
+  );
 
   // Totals summary values (live as user edits discount/paid)
   const subtotal = Number(orderData?.total || 0);
@@ -230,6 +359,28 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
         </span>
       ),
     },
+    {
+      accessorKey: "actions",
+      header: "أفعال",
+      isRendering: true,
+      cell: ({ row }) => {
+        const index = products.findIndex(
+          (p) => p.id === row.id && p.productName === row.productName
+        );
+        return (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => removeProduct(index)}
+            disabled={updateOrderMutation.isPending}
+            className="text-red-500 hover:text-red-700"
+          >
+            <Icons.close />
+          </Button>
+        );
+      },
+    },
   ];
 
   if (isLoadingOrder) {
@@ -251,6 +402,53 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="w-full mt-4 space-y-4">
+      {/* Barcode Scanner Section */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-gray-700">إضافة منتجات</h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Input
+            id="barcode"
+            label="الباركود او QR"
+            placeholder="امسح الباركود أو QR"
+            value={barcodeValue}
+            onChange={handleBarcodeChange}
+            onKeyDown={handleBarcodeKeyDown}
+            disabled={updateOrderMutation.isPending || isLoadingProducts}
+            ref={barcodeInputRef}
+          />
+          <BaseSelect
+            label="اختيار منتج"
+            placeholder="اختر منتج أو استخدم الباركود"
+            options={productOptions}
+            value={selectedProductOption}
+            isDisabled={updateOrderMutation.isPending || isLoadingProducts}
+            isClearable
+            onChange={(opt) => {
+              if (!opt || Array.isArray(opt) || !("value" in opt)) {
+                setSelectedProductOption(null);
+                focusBarcodeInput();
+                return;
+              }
+
+              setSelectedProductOption(opt);
+              const productId = parseInt(opt.value);
+              const foundProduct = productsBrief.find(
+                (p) => p.id === productId
+              );
+              if (foundProduct) {
+                addProductToOrder(foundProduct);
+              } else {
+                toast.error("المنتج غير موجود");
+              }
+
+              setSelectedProductOption(null);
+              focusBarcodeInput();
+            }}
+          />
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Input
           id="discount"

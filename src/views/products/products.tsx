@@ -199,36 +199,7 @@ export default function Products() {
       ),
       isRendering: true,
     },
-    // {
-    //   accessorKey: "attributes",
-    //   header: "الخصائص",
-    //   cell: ({ row }) => {
-    //     const attributes = row.attributes || [];
-    //     if (attributes.length === 0) return "-";
 
-    //     const displayAttributes = attributes.slice(0, 3);
-    //     const hasMore = attributes.length > 3;
-
-    //     return (
-    //       <div className="flex flex-wrap gap-1 justify-center">
-    //         {displayAttributes.map((attr: ProductAttribute, index: number) => (
-    //           <span
-    //             key={index}
-    //             className="inline-block px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded-full"
-    //           >
-    //             {attr.key}: {attr.value}
-    //           </span>
-    //         ))}
-    //         {hasMore && (
-    //           <span className="inline-block px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full">
-    //             +{attributes.length - 3} أكثر
-    //           </span>
-    //         )}
-    //       </div>
-    //     );
-    //   },
-    //   isRendering: true,
-    // },
     {
       accessorKey: "actions",
       header: "أفعال",
@@ -337,24 +308,24 @@ export default function Products() {
               align-items: center;
               justify-content: center;
               border: 1px solid #ddd;
-              padding: 0.1cm 0.15cm;
+              padding: 0.05cm 0.1cm;
               box-sizing: border-box;
             }
             h1 {
-              margin: 0 0 0.05cm 0;
+              margin: 0;
               color: #333;
-              font-size: 8pt;
+              font-size: 7pt;
               text-align: center;
-              line-height: 1.1;
+              line-height: 1;
               max-width: 100%;
               overflow: hidden;
               text-overflow: ellipsis;
               white-space: nowrap;
             }
             .manufacturer {
-              margin: 0 0 0.05cm 0;
+              margin: 0 0 0.01cm 0;
               color: #666;
-              font-size: 6pt;
+              font-size: 5.5pt;
               text-align: center;
               line-height: 1;
               max-width: 100%;
@@ -363,16 +334,16 @@ export default function Products() {
               white-space: nowrap;
             }
             .qr-container {
-              width: 1.8cm;
-              height: 1.8cm;
+              width: 2.3cm;
+              height: 2.3cm;
               display: flex;
               align-items: center;
               justify-content: center;
               flex-shrink: 0;
             }
             img {
-              width: 1.8cm;
-              height: 1.8cm;
+              width: 2.3cm;
+              height: 2.3cm;
               display: block;
             }
             @media print {
@@ -412,11 +383,8 @@ export default function Products() {
         <body>
           <div class="sticker">
             <h1>${selectedProductName}</h1>
-            ${
-              selectedProductManufacturer
-                ? `<p class="manufacturer">${selectedProductManufacturer}</p>`
-                : ""
-            }
+             <p class="manufacturer">شركة الشرق</p>
+            
             <div class="qr-container">
               <img src="${qrImageUrl}" alt="QR Code" />
             </div>
