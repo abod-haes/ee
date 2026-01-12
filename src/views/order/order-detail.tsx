@@ -85,7 +85,7 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
       if (orderData.cartProducts) {
         const formattedProducts: OrderProductEditRow[] =
           orderData.cartProducts.map((cp) => ({
-            id: cp.id,
+            id: cp.productId,
             quantity: cp.quantity || 0,
             notes: cp.notes || "",
             price: cp.productPrice || 0,
