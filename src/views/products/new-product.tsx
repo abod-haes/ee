@@ -18,8 +18,8 @@ const productSchema = z.object({
   price: z.string().min(1, { message: "السعر مطلوب" }),
   netPrice: z.string().min(1, { message: "السعر الصافي مطلوب" }),
   priceType: z.number().optional(),
-  note: z.string().min(1, { message: "ملاحظات مطلوبة" }),
-  description: z.string().min(1, { message: "الوصف مطلوب" }),
+  note: z.string().optional(),
+  description: z.string().optional(),
   source: z.string().optional(),
   store: z.string().optional(),
   manufacturer: z.string().optional(),
@@ -345,27 +345,27 @@ const AddProductForm = ({ onClose, onAdded }: AddNewProductProp) => {
                           : null;
 
                       return (
-                    <BaseSelect
-                      placeholder="اختر الخاصية"
-                      options={attributeOptions}
-                      value={selectedAttributeOption}
-                      onChange={(selectedOption) => {
-                        if (
-                          selectedOption &&
-                          !Array.isArray(selectedOption) &&
-                          "value" in selectedOption
-                        ) {
-                          const categoryAttributeId = parseInt(
-                            selectedOption.value
-                          );
-                          updateAttribute(
-                            index,
-                            "categoryAttributeId",
-                            categoryAttributeId
-                          );
-                        }
-                      }}
-                    />
+                        <BaseSelect
+                          placeholder="اختر الخاصية"
+                          options={attributeOptions}
+                          value={selectedAttributeOption}
+                          onChange={(selectedOption) => {
+                            if (
+                              selectedOption &&
+                              !Array.isArray(selectedOption) &&
+                              "value" in selectedOption
+                            ) {
+                              const categoryAttributeId = parseInt(
+                                selectedOption.value
+                              );
+                              updateAttribute(
+                                index,
+                                "categoryAttributeId",
+                                categoryAttributeId
+                              );
+                            }
+                          }}
+                        />
                       );
                     })()}
                   </div>
@@ -416,7 +416,7 @@ const AddProductForm = ({ onClose, onAdded }: AddNewProductProp) => {
             label="السعر"
             placeholder="أدخل السعر"
             type="number"
-            step="0.01"
+            step="any"
             {...register("price")}
             error={errors.price?.message}
           />
@@ -426,7 +426,7 @@ const AddProductForm = ({ onClose, onAdded }: AddNewProductProp) => {
             label="السعر الصافي"
             placeholder="أدخل السعر الصافي"
             type="number"
-            step="0.01"
+            step="any"
             {...register("netPrice")}
             error={errors.netPrice?.message}
           />
@@ -478,6 +478,7 @@ const AddProductForm = ({ onClose, onAdded }: AddNewProductProp) => {
             label="الكمية"
             placeholder="أدخل الكمية"
             type="number"
+            step="any"
             {...register("quantity", {
               setValueAs: (v) => {
                 if (v === "" || v === null || v === undefined) return undefined;
@@ -526,6 +527,7 @@ const AddProductForm = ({ onClose, onAdded }: AddNewProductProp) => {
             label="الحد الأدنى"
             placeholder="أدخل الحد الأدنى"
             type="number"
+            step="any"
             {...register("minimum", {
               setValueAs: (v) => {
                 if (v === "" || v === null || v === undefined) return undefined;

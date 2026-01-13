@@ -17,6 +17,8 @@ import {
 import { Icons } from "@/lib/icons";
 import { getPaginatedProducts } from "@/services/product.service";
 import PrintOrderButton from "@/components/order/print-order-button";
+import Dialog from "@/components/base/dialog";
+import { useDeleteOrder } from "@/hook/useOrder";
 
 const STATUS_CODE_MAP: Array<{ code: string; status: OrderStatus }> = [
   { code: "0", status: "pending" },
@@ -27,7 +29,9 @@ const STATUS_CODE_MAP: Array<{ code: string; status: OrderStatus }> = [
 
 export default function Order() {
   const loading = useBoolean(false);
+  const del = useBoolean(false);
   const [orders, setOrders] = useState<OrderType[]>([]);
+  const [selectedOrderId, setSelectedOrderId] = useState<string>("");
   const navigate = useNavigate();
   const { data: doctors = [] } = useDoctors();
   const { users } = useUserManagement();
@@ -37,6 +41,7 @@ export default function Order() {
     page: 0,
     totalPages: 1,
   });
+  const deleteOrderMutation = useDeleteOrder();
 
   const doctorOptions: Option[] = useMemo(
     () => doctors.map((d) => ({ value: String(d.id), label: d.name })),
@@ -187,6 +192,15 @@ export default function Order() {
     return () => window.removeEventListener("orders-updated", onOrdersUpdated);
   }, [applyFilters]);
 
+  const handleDeleteOrder = async () => {
+    deleteOrderMutation.mutate(selectedOrderId, {
+      onSuccess: () => {
+        del.onFalse();
+        applyFilters(); // Refresh the list after deletion
+      },
+    });
+  };
+
   const columns: Column<OrderType>[] = [
     {
       accessorKey: "id",
@@ -292,6 +306,19 @@ export default function Order() {
           >
             <Icons.printer className="w-4 h-4" />
           </PrintOrderButton>
+
+          <Button
+            variant="contained"
+            size="icon"
+            onClick={() => {
+              setSelectedOrderId(row.id.toString());
+              del.onTrue();
+            }}
+            title="حذف"
+            className="w-8 h-8 rounded-full bg-red-100 text-red-600 hover:bg-red-200 border border-red-200 transition-all duration-300 hover:scale-105 flex items-center justify-center"
+          >
+            <Icons.delete className="w-4 h-4" />
+          </Button>
         </div>
       ),
       isRendering: true,
@@ -317,115 +344,127 @@ export default function Order() {
   }, []);
 
   return (
-    <div className="p-3.5">
-      <h3 className="text-lg font-semibold text-gray-700 capitalize mb-6">
-        قائمة الطلبات
-      </h3>
+    <>
+      <Dialog
+        isOpen={del.value}
+        onClose={del.onFalse}
+        title="حذف الطلب"
+        head="هل أنت متأكد من حذف هذا الطلب؟"
+        subtitle="لا يمكن التراجع عن هذا الإجراء"
+        onSubmit={handleDeleteOrder}
+        cta="حذف"
+      />
 
-      {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-4">
-        <BaseSelect
-          label="الطبيب"
-          placeholder="اختر طبيب"
-          options={doctorOptions}
-          value={
-            doctorOptions.find((o) => o.value === filters.doctorId) || null
-          }
-          onChange={(opt) =>
-            setFilters((f) => ({
-              ...f,
-              doctorId: (opt as Option | null)?.value ?? "",
-            }))
-          }
-        />
-        <BaseSelect
-          label="المندوب"
-          placeholder="اختر مندوب"
-          options={repOptions}
-          value={repOptions.find((o) => o.value === filters.userId) || null}
-          onChange={(opt) =>
-            setFilters((f) => ({
-              ...f,
-              userId: (opt as Option | null)?.value ?? "",
-            }))
-          }
-        />
-        <BaseSelect
-          label="الحالة"
-          placeholder="اختر الحالة"
-          options={statusOptions}
-          value={
-            filters.status
-              ? statusOptions.find((o) => o.value === filters.status) || null
-              : null
-          }
-          onChange={(opt) =>
-            setFilters((f) => ({
-              ...f,
-              status: (opt as Option | null)?.value ?? "",
-            }))
-          }
-        />
-        <BaseSelect
-          label="المنتج"
-          placeholder="اختر منتج"
-          options={productOptions}
-          value={
-            filters.productId
-              ? productOptions.find((o) => o.value === filters.productId) ||
-                null
-              : null
-          }
-          onChange={(opt) =>
-            setFilters((f) => ({
-              ...f,
-              productId: (opt as Option | null)?.value ?? "",
-            }))
-          }
-          isLoading={isLoadingProducts}
-          onMenuScrollToBottom={handleLoadMoreProducts}
-          onMenuOpen={() => {
-            if (productOptions.length === 0 && !isLoadingProducts) {
-              fetchProducts(1);
+      <div className="p-3.5">
+        <h3 className="text-lg font-semibold text-gray-700 capitalize mb-6">
+          قائمة الطلبات
+        </h3>
+
+        {/* Filters */}
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-4">
+          <BaseSelect
+            label="الطبيب"
+            placeholder="اختر طبيب"
+            options={doctorOptions}
+            value={
+              doctorOptions.find((o) => o.value === filters.doctorId) || null
             }
-          }}
-        />
-        <DatePicker
-          label="التاريخ"
-          placeholder="اختر التاريخ"
-          value={filters.date}
-          onChange={(value) =>
-            setFilters((f) => ({
-              ...f,
-              date: value || getTodayDate(),
-            }))
-          }
-        />
-        <div className="flex items-end gap-2">
-          <div className="ml-auto flex gap-2">
-            <Button type="button" onClick={applyFilters}>
-              تطبيق
-            </Button>
-            <Button type="button" variant="ghost" onClick={resetFilters}>
-              إعادة تعيين
-            </Button>
+            onChange={(opt) =>
+              setFilters((f) => ({
+                ...f,
+                doctorId: (opt as Option | null)?.value ?? "",
+              }))
+            }
+          />
+          <BaseSelect
+            label="المندوب"
+            placeholder="اختر مندوب"
+            options={repOptions}
+            value={repOptions.find((o) => o.value === filters.userId) || null}
+            onChange={(opt) =>
+              setFilters((f) => ({
+                ...f,
+                userId: (opt as Option | null)?.value ?? "",
+              }))
+            }
+          />
+          <BaseSelect
+            label="الحالة"
+            placeholder="اختر الحالة"
+            options={statusOptions}
+            value={
+              filters.status
+                ? statusOptions.find((o) => o.value === filters.status) || null
+                : null
+            }
+            onChange={(opt) =>
+              setFilters((f) => ({
+                ...f,
+                status: (opt as Option | null)?.value ?? "",
+              }))
+            }
+          />
+          <BaseSelect
+            label="المنتج"
+            placeholder="اختر منتج"
+            options={productOptions}
+            value={
+              filters.productId
+                ? productOptions.find((o) => o.value === filters.productId) ||
+                  null
+                : null
+            }
+            onChange={(opt) =>
+              setFilters((f) => ({
+                ...f,
+                productId: (opt as Option | null)?.value ?? "",
+              }))
+            }
+            isLoading={isLoadingProducts}
+            onMenuScrollToBottom={handleLoadMoreProducts}
+            onMenuOpen={() => {
+              if (productOptions.length === 0 && !isLoadingProducts) {
+                fetchProducts(1);
+              }
+            }}
+          />
+          <DatePicker
+            label="التاريخ"
+            placeholder="اختر التاريخ"
+            value={filters.date}
+            onChange={(value) =>
+              setFilters((f) => ({
+                ...f,
+                date: value || getTodayDate(),
+              }))
+            }
+          />
+          <div className="flex items-end gap-2">
+            <div className="ml-auto flex gap-2">
+              <Button type="button" onClick={applyFilters}>
+                تطبيق
+              </Button>
+              <Button type="button" variant="ghost" onClick={resetFilters}>
+                إعادة تعيين
+              </Button>
+            </div>
           </div>
         </div>
+        <div className="flex justify-end mb-4">
+          <Button type="button" onClick={() => navigate("/orders/add")}>
+            اضافة طلب جديد
+          </Button>
+        </div>
+        {loading.value ? (
+          <p className="text-center text-gray-500 mt-8">جاري التحميل...</p>
+        ) : orders.length === 0 ? (
+          <p className="text-center text-gray-500 mt-8">
+            لا يوجد طلبات حالياً لعرضها
+          </p>
+        ) : (
+          <Table data={orders} columns={columns} />
+        )}
       </div>
-      <div className="flex justify-end mb-4">
-        <Button type="button" onClick={() => navigate("/orders/add")}>
-          اضافة طلب جديد
-        </Button>
-      </div>
-      {loading.value ? (
-        <p className="text-center text-gray-500 mt-8">جاري التحميل...</p>
-      ) : orders.length === 0 ? (
-        <p className="text-center text-gray-500 mt-8">
-          لا يوجد طلبات حالياً لعرضها
-        </p>
-      ) : (
-        <Table data={orders} columns={columns} />
-      )}
-    </div>
+    </>
   );
 }

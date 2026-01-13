@@ -17,8 +17,8 @@ const productSchema = z.object({
   price: z.string().min(1, { message: "السعر مطلوب" }),
   netPrice: z.string().min(1, { message: "السعر الصافي مطلوب" }),
   priceType: z.number().optional(),
-  note: z.string().min(1, { message: "ملاحظات مطلوبة" }),
-  description: z.string().min(1, { message: "الوصف مطلوب" }),
+  note: z.string().optional(),
+  description: z.string().optional(),
   source: z.string().optional(),
   store: z.string().optional(),
   manufacturer: z.string().optional(),
@@ -613,7 +613,7 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
             label="السعر"
             placeholder="أدخل السعر"
             type="number"
-            step="0.01"
+            step="any"
             {...register("price")}
             error={errors.price?.message}
           />
@@ -623,7 +623,7 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
             label="السعر الصافي"
             placeholder="أدخل السعر الصافي"
             type="number"
-            step="0.01"
+            step="any"
             {...register("netPrice")}
             error={errors.netPrice?.message}
           />
@@ -675,6 +675,7 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
             label="الكمية"
             placeholder="أدخل الكمية"
             type="number"
+            step="any"
             {...register("quantity", {
               setValueAs: (v) => {
                 if (v === "" || v === null || v === undefined) return undefined;
@@ -723,6 +724,7 @@ const EditProductForm = ({ onClose, onAdded, slug }: EditProductProp) => {
             label="الحد الأدنى"
             placeholder="أدخل الحد الأدنى"
             type="number"
+            step="any"
             {...register("minimum", {
               setValueAs: (v) => {
                 if (v === "" || v === null || v === undefined) return undefined;

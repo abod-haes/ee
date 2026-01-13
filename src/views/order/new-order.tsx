@@ -19,7 +19,7 @@ import { API_BASE_URL } from "@/api";
 
 const orderSchema = z.object({
   doctorId: z.number().min(1, { message: "الطبيب مطلوب" }),
-  email: z.string().email().optional().or(z.literal("")),
+  email: z.string().optional(),
   discount: z.number().min(0, { message: "الخصم يجب أن يكون 0 أو أكثر" }),
   paid: z.number().min(0, { message: "المبلغ المدفوع يجب أن يكون 0 أو أكثر" }),
 });
@@ -241,6 +241,15 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
     []
   );
 
+  // Handle product price change
+  const handlePriceChange = useCallback((index: number, price: string) => {
+    setProducts((prev) => {
+      const newProducts = [...prev];
+      newProducts[index] = { ...newProducts[index], price };
+      return newProducts;
+    });
+  }, []);
+
   // Handle product notes change
   const handleNotesChange = useCallback((index: number, notes: string) => {
     setProducts((prev) => {
@@ -294,7 +303,6 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
     if (user.email || data.email) {
       formData.append("email", user.email || data.email || "");
     }
-
     // Add products
     products.forEach((product, index) => {
       formData.append(`products[${index}][id]`, product.id.toString());
@@ -357,17 +365,19 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
         accessorKey: "quantity",
         header: "الكمية",
         cell: ({ row }) => {
-          const index = products.findIndex((p) => p.id === row.id);
           return (
             <input
+              key={`quantity-${row.id}`}
               type="number"
               min={1}
+              step="any"
               className="w-24 px-2 py-1 border rounded"
               defaultValue={row.quantity}
               disabled={isSubmitting || isLoadingProducts || isLoadingUser}
               onBlur={(e) => {
-                const value = parseInt(e.target.value) || 1;
-                if (value !== row.quantity) {
+                const index = products.findIndex((p) => p.id === row.id);
+                const value = parseFloat(e.target.value) || 1;
+                if (value >= 1 && value !== row.quantity) {
                   handleQuantityChange(index, value);
                 }
               }}
@@ -382,13 +392,20 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
         cell: ({ row }) => {
           return (
             <input
+              key={`price-${row.id}`}
               type="number"
               min={0}
-              step={0.01}
-              readOnly
-              className="w-28 px-2 py-1 border rounded bg-gray-50"
+              step="any"
+              className="w-28 px-2 py-1 border rounded"
               defaultValue={row.price}
-              disabled={true}
+              disabled={isSubmitting || isLoadingProducts || isLoadingUser}
+              onBlur={(e) => {
+                const index = products.findIndex((p) => p.id === row.id);
+                const value = e.target.value;
+                if (value !== row.price) {
+                  handlePriceChange(index, value);
+                }
+              }}
             />
           );
         },
@@ -398,14 +415,15 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
         accessorKey: "notes",
         header: "ملاحظات",
         cell: ({ row }) => {
-          const index = products.findIndex((p) => p.id === row.id);
           return (
             <input
+              key={`notes-${row.id}`}
               type="text"
               className="w-64 px-2 py-1 border rounded"
               defaultValue={row.notes}
               disabled={isSubmitting || isLoadingProducts || isLoadingUser}
               onBlur={(e) => {
+                const index = products.findIndex((p) => p.id === row.id);
                 const value = e.target.value;
                 if (value !== row.notes) {
                   handleNotesChange(index, value);
@@ -451,6 +469,7 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
     [
       products,
       handleQuantityChange,
+      handlePriceChange,
       handleNotesChange,
       removeProduct,
       isSubmitting,

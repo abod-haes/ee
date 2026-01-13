@@ -211,18 +211,23 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
     }
   };
 
-  const handleProductChange = <K extends keyof OrderProductEditRow>(
-    index: number,
-    field: K,
-    value: OrderProductEditRow[K]
-  ) => {
-    const newProducts = [...products];
-    newProducts[index] = {
-      ...newProducts[index],
-      [field]: value,
-    };
-    setProducts(newProducts);
-  };
+  const handleProductChange = useCallback(
+    <K extends keyof OrderProductEditRow>(
+      index: number,
+      field: K,
+      value: OrderProductEditRow[K]
+    ) => {
+      setProducts((prev) => {
+        const newProducts = [...prev];
+        newProducts[index] = {
+          ...newProducts[index],
+          [field]: value,
+        };
+        return newProducts;
+      });
+    },
+    []
+  );
 
   const removeProduct = useCallback((index: number) => {
     setProducts((prev) => prev.filter((_, i) => i !== index));
@@ -254,134 +259,159 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
   const totalAfterDiscount = Math.max(subtotal - discountValue, 0);
   const remaining = Math.max(totalAfterDiscount - Math.max(paidValue, 0), 0);
 
-  const productsTableData: ProductRow[] = products.map((p, idx) => ({
-    ...p,
-    rowIndex: idx + 1,
-  }));
+  const productsTableData: ProductRow[] = useMemo(
+    () =>
+      products.map((p, idx) => ({
+        ...p,
+        rowIndex: idx + 1,
+      })),
+    [products]
+  );
 
-  const productColumns: Column<ProductRow>[] = [
-    {
-      accessorKey: "rowIndex",
-      header: "#",
-      isRendering: true,
-      cell: ({ row }) => (
-        <span className="text-(--base-800)">{row.rowIndex}</span>
-      ),
-    },
-    {
-      accessorKey: "productName",
-      header: "المنتج",
-      isRendering: true,
-      cell: ({ row }) => (
-        <span className="text-(--base-800)">{row.productName}</span>
-      ),
-    },
-    {
-      accessorKey: "quantity",
-      header: "الكمية",
-      isRendering: true,
-      cell: ({ row }) => {
-        const index = products.findIndex((p) => p.id === row.id);
-        return (
-          <input
-            type="number"
-            min={1}
-            className="w-24 px-2 py-1 border rounded"
-            value={row.quantity}
-            onChange={(e) =>
-              handleProductChange(index, "quantity", Number(e.target.value))
-            }
-          />
-        );
+  const productColumns: Column<ProductRow>[] = useMemo(
+    () => [
+      {
+        accessorKey: "rowIndex",
+        header: "#",
+        isRendering: true,
+        cell: ({ row }) => (
+          <span className="text-(--base-800)">{row.rowIndex}</span>
+        ),
       },
-    },
-    {
-      accessorKey: "price",
-      header: "السعر",
-      isRendering: true,
-      cell: ({ row }) => {
-        const index = products.findIndex((p) => p.id === row.id);
-        return (
-          <input
-            type="number"
-            min={0}
-            step={0.01}
-            className="w-28 px-2 py-1 border rounded"
-            value={row.price}
-            onChange={(e) =>
-              handleProductChange(index, "price", Number(e.target.value))
-            }
-          />
-        );
+      {
+        accessorKey: "productName",
+        header: "المنتج",
+        isRendering: true,
+        cell: ({ row }) => (
+          <span className="text-(--base-800)">{row.productName}</span>
+        ),
       },
-    },
-    {
-      accessorKey: "quantityType",
-      header: "نوع الكمية",
-      isRendering: true,
-      cell: ({ row }) => {
-        return (
-          <span className="text-(--base-800)">
-            {
-              quantityTypes.find((q) => q.value === String(row.quantityType))
-                ?.label
-            }
+      {
+        accessorKey: "quantity",
+        header: "الكمية",
+        isRendering: true,
+        cell: ({ row }) => {
+          return (
+            <input
+              key={`quantity-${row.id}-${row.productName}`}
+              type="number"
+              min={1}
+              step="any"
+              className="w-24 px-2 py-1 border rounded"
+              defaultValue={row.quantity}
+              onBlur={(e) => {
+                const index = products.findIndex((p) => p.id === row.id);
+                const value = Number(e.target.value);
+                if (value >= 1 && value !== row.quantity) {
+                  handleProductChange(index, "quantity", value);
+                }
+              }}
+            />
+          );
+        },
+      },
+      {
+        accessorKey: "price",
+        header: "السعر",
+        isRendering: true,
+        cell: ({ row }) => {
+          return (
+            <input
+              key={`price-${row.id}-${row.productName}`}
+              type="number"
+              min={0}
+              step={0.00001}
+              className="w-28 px-2 py-1 border rounded"
+              defaultValue={row.price}
+              onBlur={(e) => {
+                const index = products.findIndex((p) => p.id === row.id);
+                const value = Number(e.target.value);
+                if (value !== row.price) {
+                  handleProductChange(index, "price", value);
+                }
+              }}
+            />
+          );
+        },
+      },
+      {
+        accessorKey: "quantityType",
+        header: "نوع الكمية",
+        isRendering: true,
+        cell: ({ row }) => {
+          return (
+            <span className="text-(--base-800)">
+              {
+                quantityTypes.find((q) => q.value === String(row.quantityType))
+                  ?.label
+              }
+            </span>
+          );
+        },
+      },
+      {
+        accessorKey: "notes",
+        header: "ملاحظات",
+        isRendering: true,
+        cell: ({ row }) => {
+          return (
+            <input
+              key={`notes-${row.id}-${row.productName}`}
+              type="text"
+              className="w-64 px-2 py-1 border rounded"
+              defaultValue={row.notes}
+              onBlur={(e) => {
+                const index = products.findIndex((p) => p.id === row.id);
+                const value = e.target.value;
+                if (value !== row.notes) {
+                  handleProductChange(index, "notes", value);
+                }
+              }}
+              placeholder="ملاحظات إضافية"
+            />
+          );
+        },
+      },
+      {
+        accessorKey: "total",
+        header: "الإجمالي",
+        isRendering: true,
+        cell: ({ row }) => (
+          <span className="font-medium">
+            {(row.quantity * row.price).toFixed(2)}
           </span>
-        );
+        ),
       },
-    },
-    {
-      accessorKey: "notes",
-      header: "ملاحظات",
-      isRendering: true,
-      cell: ({ row }) => {
-        const index = products.findIndex((p) => p.id === row.id);
-        return (
-          <input
-            type="text"
-            className="w-64 px-2 py-1 border rounded"
-            value={row.notes}
-            onChange={(e) =>
-              handleProductChange(index, "notes", e.target.value)
-            }
-            placeholder="ملاحظات إضافية"
-          />
-        );
+      {
+        accessorKey: "actions",
+        header: "أفعال",
+        isRendering: true,
+        cell: ({ row }) => {
+          const index = products.findIndex(
+            (p) => p.id === row.id && p.productName === row.productName
+          );
+          return (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => removeProduct(index)}
+              disabled={updateOrderMutation.isPending}
+              className="text-red-500 hover:text-red-700"
+            >
+              <Icons.close />
+            </Button>
+          );
+        },
       },
-    },
-    {
-      accessorKey: "total",
-      header: "الإجمالي",
-      isRendering: true,
-      cell: ({ row }) => (
-        <span className="font-medium">
-          {(row.quantity * row.price).toFixed(2)}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "actions",
-      header: "أفعال",
-      isRendering: true,
-      cell: ({ row }) => {
-        const index = products.findIndex(
-          (p) => p.id === row.id && p.productName === row.productName
-        );
-        return (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => removeProduct(index)}
-            disabled={updateOrderMutation.isPending}
-            className="text-red-500 hover:text-red-700"
-          >
-            <Icons.close />
-          </Button>
-        );
-      },
-    },
-  ];
+    ],
+    [
+      products,
+      handleProductChange,
+      removeProduct,
+      updateOrderMutation.isPending,
+    ]
+  );
 
   if (isLoadingOrder) {
     return (
@@ -454,6 +484,7 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
           id="discount"
           label="الخصم"
           type="number"
+          step="0.01"
           placeholder="أدخل الخصم"
           {...register("discount", {
             setValueAs: (v) => {
@@ -469,6 +500,7 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
           id="paid"
           label="المبلغ المدفوع "
           type="number"
+          step="0.01"
           placeholder="أدخل المبلغ المدفوع"
           {...register("paid", {
             setValueAs: (v) => {
