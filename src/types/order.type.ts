@@ -27,6 +27,7 @@ export interface Order {
   discount: number;
   products: Product[];
   RepName: string | null;
+  userType: string;
   doctorId: number;
   doctor: Doctor | null;
   cartProducts?: CartProduct[];

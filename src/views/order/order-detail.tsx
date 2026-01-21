@@ -229,6 +229,24 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
     []
   );
 
+  // Handle product total change - update price based on total and quantity
+  const handleTotalChange = useCallback((index: number, total: number) => {
+    if (total < 0) return;
+    setProducts((prev) => {
+      const newProducts = [...prev];
+      const product = newProducts[index];
+      if (product.quantity > 0) {
+        // Calculate new price: price = total / quantity
+        const newPrice = total / product.quantity;
+        newProducts[index] = {
+          ...product,
+          price: newPrice,
+        };
+      }
+      return newProducts;
+    });
+  }, []);
+
   const removeProduct = useCallback((index: number) => {
     setProducts((prev) => prev.filter((_, i) => i !== index));
   }, []);
@@ -376,11 +394,29 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
         accessorKey: "total",
         header: "الإجمالي",
         isRendering: true,
-        cell: ({ row }) => (
-          <span className="font-medium">
-            {(row.quantity * row.price).toFixed(2)}
-          </span>
-        ),
+        cell: ({ row }) => {
+          const currentTotal = row.quantity * row.price;
+          return (
+            <input
+              key={`total-${row.id}-${row.productName}-${row.price}-${row.quantity}`}
+              type="number"
+              min={0}
+              step="any"
+              className="w-28 px-2 py-1 border rounded font-medium"
+              defaultValue={currentTotal.toFixed(2)}
+              disabled={updateOrderMutation.isPending}
+              onBlur={(e) => {
+                const index = products.findIndex(
+                  (p) => p.id === row.id && p.productName === row.productName
+                );
+                const value = Number(e.target.value) || 0;
+                if (value >= 0 && value !== currentTotal) {
+                  handleTotalChange(index, value);
+                }
+              }}
+            />
+          );
+        },
       },
       {
         accessorKey: "actions",
@@ -408,6 +444,7 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
     [
       products,
       handleProductChange,
+      handleTotalChange,
       removeProduct,
       updateOrderMutation.isPending,
     ]
@@ -431,7 +468,15 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="w-full mt-4 space-y-4">
+    <form
+      onSubmit={handleSubmit(onSubmit)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && e.target instanceof HTMLInputElement) {
+          e.preventDefault();
+        }
+      }}
+      className="w-full mt-4 space-y-4"
+    >
       {/* Barcode Scanner Section */}
       <div className="space-y-4">
         <h3 className="text-lg font-semibold text-gray-700">إضافة منتجات</h3>

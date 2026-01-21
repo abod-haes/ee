@@ -91,11 +91,17 @@ export default function RootLayout() {
     if (newlyAddedIds.length > 0) {
       // Open dialog for the most recently added order
       const latestOrderId = newlyAddedIds[newlyAddedIds.length - 1];
+      
+      // Find the order in the current orders array
+      const latestOrder = orders.find((o) => Number(o.id) === latestOrderId);
 
       // Use setTimeout to avoid synchronous setState in effect
       setTimeout(() => {
-        setSelectedOrderId(latestOrderId);
-        setIsDialogOpen(true);
+        // Only show dialog if user type is not Admin
+        if (latestOrder && latestOrder.userType !== "Admin") {
+          setSelectedOrderId(latestOrderId);
+          setIsDialogOpen(true);
+        }
       }, 0);
 
       // Notify other pages to refetch orders (e.g., orders list page)
@@ -132,7 +138,7 @@ export default function RootLayout() {
       </div>
 
       <Dialog
-        isOpen={isDialogOpen}
+        isOpen={isDialogOpen }
         onClose={handleCloseDialog}
         title={selectedOrderId ? `طلب جديد #${selectedOrderId}` : "طلب جديد"}
         subtitle={
@@ -141,7 +147,7 @@ export default function RootLayout() {
             : "جاري التحميل..."
         }
       >
-        {selectedOrder ? (
+        {selectedOrder && selectedOrder.userType!=="Admin"  ?  (
           <div className="space-y-3">
             <div className="text-start">
               <div className="text-gray-500 text-sm mb-1">التاريخ</div>

@@ -17,6 +17,7 @@ import {
 import { Icons } from "@/lib/icons";
 import { getPaginatedProducts } from "@/services/product.service";
 import PrintOrderButton from "@/components/order/print-order-button";
+import PrintOrdersReportButton from "@/components/order/print-orders-report-button";
 import Dialog from "@/components/base/dialog";
 import { useDeleteOrder } from "@/hook/useOrder";
 
@@ -31,6 +32,8 @@ export default function Order() {
   const loading = useBoolean(false);
   const del = useBoolean(false);
   const [orders, setOrders] = useState<OrderType[]>([]);
+  const [ordersCount, setOrdersCount] = useState<number>(0);
+  const [ordersTotal, setOrdersTotal] = useState<number>(0);
   const [selectedOrderId, setSelectedOrderId] = useState<string>("");
   const navigate = useNavigate();
   const { data: doctors = [] } = useDoctors();
@@ -126,9 +129,13 @@ export default function Order() {
     productPagination.totalPages,
   ]);
 
-  // Get today's date in YYYY-MM-DD format
+  // Get today's date in YYYY-MM-DD format without timezone issues
   const getTodayDate = () => {
-    return new Date().toISOString().split("T")[0];
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}-${String(today.getDate()).padStart(2, "0")}`;
   };
 
   const [filters, setFilters] = useState<{
@@ -157,27 +164,32 @@ export default function Order() {
       loading.onTrue();
       const data = await getAllOrders(params);
       setOrders(data);
+      setOrdersCount(data.length);
+      const total = data.reduce((sum, order) => sum + (order.total || 0), 0);
+      setOrdersTotal(total);
     } finally {
       loading.onFalse();
     }
   }, [filters, loading]);
 
   const resetFilters = async () => {
+    // Reset all filters including date - don't send date to API
     setFilters({
       doctorId: "",
       userId: "",
       productId: "",
       status: "",
-      date: "",
+      date: "", // Empty date - don't send to API
     });
-    // Apply filters with today's date
-    const params: Record<string, string | number | undefined> = {
-      date: getTodayDate(),
-    };
+    // Don't send date parameter - fetch all orders without date filter
+    const params: Record<string, string | number | undefined> = {};
     try {
       loading.onTrue();
       const data = await getAllOrders(params);
       setOrders(data);
+      setOrdersCount(data.length);
+      const total = data.reduce((sum, order) => sum + (order.total || 0), 0);
+      setOrdersTotal(total);
     } finally {
       loading.onFalse();
     }
@@ -335,6 +347,9 @@ export default function Order() {
         loading.onTrue();
         const data = await getAllOrders(params);
         setOrders(data);
+        setOrdersCount(data.length);
+        const total = data.reduce((sum, order) => sum + (order.total || 0), 0);
+        setOrdersTotal(total);
       } finally {
         loading.onFalse();
       }
@@ -431,11 +446,11 @@ export default function Order() {
           <DatePicker
             label="التاريخ"
             placeholder="اختر التاريخ"
-            value={filters.date}
+            value={filters.date || ""}
             onChange={(value) =>
               setFilters((f) => ({
                 ...f,
-                date: value || getTodayDate(),
+                date: value || "",
               }))
             }
           />
@@ -450,10 +465,28 @@ export default function Order() {
             </div>
           </div>
         </div>
-        <div className="flex justify-end mb-4">
-          <Button type="button" onClick={() => navigate("/orders/add")}>
-            اضافة طلب جديد
-          </Button>
+        <div className="flex justify-between mb-4 items-center gap-6" dir="rtl">
+          <div className="flex items-center gap-6">
+            <div className="text-xl font-medium text-gray-700">
+            طلبات  <span className="font-semibold text-gray-900">{ordersCount}</span> 
+            </div>
+            <div className="text-xl font-medium text-gray-700">
+            إجمالي المبلغ <span className="font-semibold text-green-600">{ordersTotal.toFixed(2)}</span> $
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <PrintOrdersReportButton
+              date={filters.date || getTodayDate()}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <Icons.printer className="w-4 h-4" />
+              طباعة تقرير اليوم
+            </PrintOrdersReportButton>
+            <Button type="button" onClick={() => navigate("/orders/add")}>
+              اضافة طلب جديد
+            </Button>
+          </div>
         </div>
         {loading.value ? (
           <p className="text-center text-gray-500 mt-8">جاري التحميل...</p>

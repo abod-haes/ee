@@ -16,6 +16,7 @@ import toast from "react-hot-toast";
 import { Icons } from "@/lib/icons";
 import axiosInstance from "@/lib/axios";
 import { API_BASE_URL } from "@/api";
+import { useNavigate } from "react-router-dom";
 
 const orderSchema = z.object({
   doctorId: z.number().min(1, { message: "الطبيب مطلوب" }),
@@ -259,6 +260,24 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
     });
   }, []);
 
+  // Handle product total change - update price based on total and quantity
+  const handleTotalChange = useCallback((index: number, total: number) => {
+    if (total < 0) return;
+    setProducts((prev) => {
+      const newProducts = [...prev];
+      const product = newProducts[index];
+      if (product.quantity > 0) {
+        // Calculate new price: price = total / quantity
+        const newPrice = (total / product.quantity).toFixed(2);
+        newProducts[index] = {
+          ...product,
+          price: newPrice,
+        };
+      }
+      return newProducts;
+    });
+  }, []);
+
   // Remove product
   const removeProduct = useCallback((index: number) => {
     setProducts((prev) => prev.filter((_, i) => i !== index));
@@ -277,13 +296,13 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
       })),
     [productsBrief]
   );
+    const navigate = useNavigate();
 
   const onSubmit = async (data: OrderFormData) => {
     if (products.length === 0) {
       toast.error("يجب إضافة منتج واحد على الأقل");
       return;
     }
-
     if (!user) {
       toast.error("جاري تحميل بيانات المستخدم...");
       return;
@@ -317,7 +336,7 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
     try {
       setIsSubmitting(true);
 
-      await axiosInstance.post(`${API_BASE_URL}/orders`, formData, {
+    const res =   await axiosInstance.post<{id: number}>(`${API_BASE_URL}/orders`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -326,6 +345,7 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
       toast.success("تم إنشاء الطلب بنجاح");
       onAdded();
       onClose();
+      navigate(`/orders/${res.data.id}`);
     } catch (error: unknown) {
       const axiosError = error as {
         response?: { status?: number; data?: { message?: string } };
@@ -438,11 +458,27 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
       {
         accessorKey: "total",
         header: "الإجمالي",
-        cell: ({ row }) => (
-          <div className="text-sm font-medium">
-            {(parseFloat(row.price) * row.quantity).toFixed(2)} $
-          </div>
-        ),
+        cell: ({ row }) => {
+          const currentTotal = parseFloat(row.price) * row.quantity;
+          return (
+            <input
+              key={`total-${row.id}-${row.price}-${row.quantity}`}
+              type="number"
+              min={0}
+              step="any"
+              className="w-28 px-2 py-1 border rounded text-sm font-medium"
+              defaultValue={currentTotal.toFixed(2)}
+              disabled={isSubmitting || isLoadingProducts || isLoadingUser}
+              onBlur={(e) => {
+                const index = products.findIndex((p) => p.id === row.id);
+                const value = parseFloat(e.target.value) || 0;
+                if (value >= 0 && value !== currentTotal) {
+                  handleTotalChange(index, value);
+                }
+              }}
+            />
+          );
+        },
         isRendering: true,
       },
       {
@@ -471,6 +507,7 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
       handleQuantityChange,
       handlePriceChange,
       handleNotesChange,
+      handleTotalChange,
       removeProduct,
       isSubmitting,
       isLoadingProducts,
@@ -499,6 +536,11 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && e.target instanceof HTMLInputElement) {
+          e.preventDefault();
+        }
+      }}
       className="w-full mt-4 space-y-4"
       suppressHydrationWarning
     >

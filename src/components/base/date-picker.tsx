@@ -31,28 +31,48 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
     const [selectedDate, setSelectedDate] = useState(value);
     const [isClient] = useState(() => typeof window !== "undefined");
     const now = new Date();
+    const containerRef = useRef<HTMLDivElement>(null);
+    const prevSelectedDateRef = useRef<string>(value || "");
+
+    // Helper function to parse YYYY-MM-DD without timezone issues
+    // Using useCallback pattern but defined as regular function for use in useState initializers
+    const parseDateString = React.useMemo(
+      () =>
+        (dateString: string): Date => {
+          const [year, month, day] = dateString.split("-").map(Number);
+          return new Date(year, month - 1, day);
+        },
+      []
+    );
+
     const [currentMonth, setCurrentMonth] = useState(() => {
       if (value) {
-        const date = new Date(value);
+        const [year, month, day] = value.split("-").map(Number);
+        const date = new Date(year, month - 1, day);
         return date.getMonth();
       }
       return now.getMonth();
     });
     const [currentYear, setCurrentYear] = useState(() => {
       if (value) {
-        const date = new Date(value);
+        const [year, month, day] = value.split("-").map(Number);
+        const date = new Date(year, month - 1, day);
         return date.getFullYear();
       }
       return now.getFullYear();
     });
-    const containerRef = useRef<HTMLDivElement>(null);
-    const prevSelectedDateRef = useRef<string>(value || "");
+
+    // Update selectedDate when value prop changes
+    useEffect(() => {
+      setSelectedDate(value || "");
+      prevSelectedDateRef.current = value || "";
+    }, [value]);
 
     // Update current month/year when selectedDate changes from props
     // Use a ref to track previous value and defer updates to avoid cascading renders
     useEffect(() => {
       if (selectedDate && selectedDate !== prevSelectedDateRef.current) {
-        const date = new Date(selectedDate);
+        const date = parseDateString(selectedDate);
         // Defer state updates to next frame to avoid cascading renders
         const timeoutId = setTimeout(() => {
           setCurrentMonth(date.getMonth());
@@ -61,7 +81,7 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
         prevSelectedDateRef.current = selectedDate;
         return () => clearTimeout(timeoutId);
       }
-    }, [selectedDate]);
+    }, [selectedDate, parseDateString]);
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -82,7 +102,7 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
 
     const formatDate = (dateString: string) => {
       if (!dateString) return "";
-      const date = new Date(dateString);
+      const date = parseDateString(dateString);
       const options: Intl.DateTimeFormatOptions = {
         year: "numeric",
         month: "long",
@@ -100,8 +120,12 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
     };
 
     const handleToday = () => {
-      const today = new Date().toISOString().split("T")[0];
-      handleDateSelect(today);
+      // Get today's date in YYYY-MM-DD format without timezone issues
+      const today = new Date();
+      const todayString = `${today.getFullYear()}-${String(
+        today.getMonth() + 1
+      ).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+      handleDateSelect(todayString);
     };
 
     const handleClear = () => {
@@ -135,11 +159,18 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
 
       // Add days of the month
       for (let day = 1; day <= daysInMonth; day++) {
-        const dateString = new Date(currentYear, currentMonth, day)
-          .toISOString()
-          .split("T")[0];
+        // Format date as YYYY-MM-DD without timezone issues
+        const dateString = `${currentYear}-${String(currentMonth + 1).padStart(
+          2,
+          "0"
+        )}-${String(day).padStart(2, "0")}`;
         const isSelected = selectedDate === dateString;
-        const isToday = dateString === new Date().toISOString().split("T")[0];
+        // Get today's date in YYYY-MM-DD format
+        const today = new Date();
+        const todayString = `${today.getFullYear()}-${String(
+          today.getMonth() + 1
+        ).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+        const isToday = dateString === todayString;
 
         days.push({
           day,
