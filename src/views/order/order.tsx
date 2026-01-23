@@ -163,9 +163,9 @@ export default function Order() {
     try {
       loading.onTrue();
       const data = await getAllOrders(params);
-      setOrders(data);
-      setOrdersCount(data.length);
-      const total = data.reduce((sum, order) => sum + (order.total || 0), 0);
+      setOrders(data.data);
+      setOrdersCount(data.count);
+      const total = data.total
       setOrdersTotal(total);
     } finally {
       loading.onFalse();
@@ -186,9 +186,9 @@ export default function Order() {
     try {
       loading.onTrue();
       const data = await getAllOrders(params);
-      setOrders(data);
-      setOrdersCount(data.length);
-      const total = data.reduce((sum, order) => sum + (order.total || 0), 0);
+      setOrders(data.data);
+      setOrdersCount(data.data.length);
+      const total = data.total
       setOrdersTotal(total);
     } finally {
       loading.onFalse();
@@ -346,9 +346,9 @@ export default function Order() {
       try {
         loading.onTrue();
         const data = await getAllOrders(params);
-        setOrders(data);
-        setOrdersCount(data.length);
-        const total = data.reduce((sum, order) => sum + (order.total || 0), 0);
+        setOrders(data.data);
+        setOrdersCount(data.count);
+        const total = data.total
         setOrdersTotal(total);
       } finally {
         loading.onFalse();
@@ -481,7 +481,7 @@ export default function Order() {
               className="flex items-center gap-2"
             >
               <Icons.printer className="w-4 h-4" />
-              طباعة تقرير اليوم
+              طباعة تقرير 
             </PrintOrdersReportButton>
             <Button type="button" onClick={() => navigate("/orders/add")}>
               اضافة طلب جديد

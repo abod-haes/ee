@@ -270,8 +270,16 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
     [productsBrief]
   );
 
-  // Totals summary values (live as user edits discount/paid)
-  const subtotal = Number(orderData?.total || 0);
+  // Totals summary values (live - recalculates when products, prices, or quantities change)
+  const subtotal = useMemo(() => {
+    return products.reduce((sum, p) => {
+      const price = Number(p.price ?? 0);
+      const safePrice = Number.isFinite(price) ? price : 0;
+      const qty = Number(p.quantity ?? 0);
+      const safeQty = Number.isFinite(qty) ? qty : 0;
+      return sum + safePrice * safeQty;
+    }, 0);
+  }, [products]);
   const discountValue = Number(useWatch({ control, name: "discount" }) ?? 0);
   const paidValue = Number(useWatch({ control, name: "paid" }) ?? 0);
   const totalAfterDiscount = Math.max(subtotal - discountValue, 0);

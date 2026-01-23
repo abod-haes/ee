@@ -16,7 +16,6 @@ import toast from "react-hot-toast";
 import { Icons } from "@/lib/icons";
 import axiosInstance from "@/lib/axios";
 import { API_BASE_URL } from "@/api";
-import { useNavigate } from "react-router-dom";
 
 const orderSchema = z.object({
   doctorId: z.number().min(1, { message: "الطبيب مطلوب" }),
@@ -296,7 +295,7 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
       })),
     [productsBrief]
   );
-    const navigate = useNavigate();
+    // const navigate = useNavigate();
 
   const onSubmit = async (data: OrderFormData) => {
     if (products.length === 0) {
@@ -336,7 +335,7 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
     try {
       setIsSubmitting(true);
 
-    const res =   await axiosInstance.post<{id: number}>(`${API_BASE_URL}/orders`, formData, {
+  await axiosInstance.post<{id: number}>(`${API_BASE_URL}/orders`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -345,7 +344,7 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
       toast.success("تم إنشاء الطلب بنجاح");
       onAdded();
       onClose();
-      navigate(`/orders/${res.data.id}`);
+      // navigate(`/orders/${res.data.id}`);
     } catch (error: unknown) {
       const axiosError = error as {
         response?: { status?: number; data?: { message?: string } };

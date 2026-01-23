@@ -14,14 +14,14 @@ import type { ApiResponse } from "@/types/common.type";
 // Get all orders
 export const getAllOrders = async (
   params?: PaginationParams
-): Promise<Order[]> => {
+) => {
   const response = await axiosInstance.get < {count: number, total: number}&ApiResponse<Order[]>>(
     API_BASE_URL + "/orders",
     {
       params,
     }
   );
-  return response.data.data || [];
+  return response.data;
 };
 
 // Get order by ID

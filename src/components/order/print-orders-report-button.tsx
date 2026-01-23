@@ -4,7 +4,6 @@ import { Icons } from "@/lib/icons";
 import { getAllOrders } from "@/services/order.service";
 import {
   ORDER_STATUS_LABELS,
-  ORDER_STATUS_COLORS,
   type OrderStatus,
 } from "@/types/order.type";
 
@@ -36,9 +35,10 @@ export default function PrintOrdersReportButton({
   const handlePrint = useCallback(async () => {
     try {
       setIsPrinting(true);
+      // Use the provided date, or get today's date if not provided
       const targetDate = date || getTodayDate();
-      const orders = await getAllOrders({ date: targetDate });
-
+      const d = await getAllOrders({ date: targetDate });
+const orders = d?.data ??[]
       if (orders.length === 0) {
         alert("لا توجد طلبات للطباعة");
         return;
@@ -47,12 +47,8 @@ export default function PrintOrdersReportButton({
       const printWindow = window.open("", "_blank");
       if (!printWindow) return;
 
-      const ordersCount = orders.length;
-      const ordersTotal = orders.reduce((sum, order) => {
-        const total = Number(order.total) || 0;
-        return sum + total;
-      }, 0);
-
+      const ordersCount = d.count;
+      const ordersTotal = d.total
       const renderOrderRow = (order: typeof orders[0], index: number) => {
         const statusKey = order.status as OrderStatus;
         const statusLabel =
@@ -402,7 +398,7 @@ export default function PrintOrdersReportButton({
               }
               @page {
                 margin: 0 !important;
-                size: A4 landscape;
+                size: A4;
               }
             }
           </style>
