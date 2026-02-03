@@ -29,7 +29,7 @@ export default function PrintOrderButton({
     try {
       setIsPrinting(true);
       const orderData = await getOrderById(orderId);
-
+      console.log(orderData.date);
       const printWindow = window.open("", "_blank");
       if (!printWindow) return;
 
@@ -135,9 +135,11 @@ export default function PrintOrderButton({
           <span>الدكتور المحترم: <strong>${
             orderData.doctor?.name || orderData.RepName || ""
           }</strong></span>
-          <span>التاريخ: <strong>${new Date().toLocaleDateString(
-            "en-CA"
-          )}</strong></span>
+            <span>التاريخ: <strong>${
+              orderData.date
+                ? new Date(orderData.date).toLocaleDateString("en-CA")
+                : new Date().toLocaleDateString("en-CA")
+            }</strong></span>
         </div>
       `;
 
@@ -171,7 +173,7 @@ export default function PrintOrderButton({
           <div class="total-row" style="margin-top: 10px;">
             <span class="total-label">المبلغ المتبقي:</span>
             <span class="total-amount" style="color:#dc2626;">${rest.toFixed(
-              2
+              3
             )} $</span>
           </div>
         </div>

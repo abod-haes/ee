@@ -295,7 +295,7 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
       })),
     [productsBrief]
   );
-    // const navigate = useNavigate();
+  // const navigate = useNavigate();
 
   const onSubmit = async (data: OrderFormData) => {
     if (products.length === 0) {
@@ -335,11 +335,15 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
     try {
       setIsSubmitting(true);
 
-  await axiosInstance.post<{id: number}>(`${API_BASE_URL}/orders`, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
+      await axiosInstance.post<{ id: number }>(
+        `${API_BASE_URL}/orders`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
 
       toast.success("تم إنشاء الطلب بنجاح");
       onAdded();
@@ -389,7 +393,7 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
               key={`quantity-${row.id}`}
               type="number"
               min={1}
-              step="any"
+              step="0.01"
               className="w-24 px-2 py-1 border rounded"
               defaultValue={row.quantity}
               disabled={isSubmitting || isLoadingProducts || isLoadingUser}
@@ -414,7 +418,7 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
               key={`price-${row.id}`}
               type="number"
               min={0}
-              step="any"
+              step="0.01"
               className="w-28 px-2 py-1 border rounded"
               defaultValue={row.price}
               disabled={isSubmitting || isLoadingProducts || isLoadingUser}
@@ -464,7 +468,7 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
               key={`total-${row.id}-${row.price}-${row.quantity}`}
               type="number"
               min={0}
-              step="any"
+              step="0.01"
               className="w-28 px-2 py-1 border rounded text-sm font-medium"
               defaultValue={currentTotal.toFixed(2)}
               disabled={isSubmitting || isLoadingProducts || isLoadingUser}

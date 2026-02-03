@@ -15,7 +15,7 @@ import {
   ORDER_STATUS_COLORS,
 } from "@/types/order.type";
 import { Icons } from "@/lib/icons";
-import { getPaginatedProducts } from "@/services/product.service";
+import { getProductsBrief } from "@/services/product.service";
 import PrintOrderButton from "@/components/order/print-order-button";
 import PrintOrdersReportButton from "@/components/order/print-orders-report-button";
 import Dialog from "@/components/base/dialog";
@@ -40,10 +40,6 @@ export default function Order() {
   const { users } = useUserManagement();
   const [productOptions, setProductOptions] = useState<Option[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
-  const [productPagination, setProductPagination] = useState({
-    page: 0,
-    totalPages: 1,
-  });
   const deleteOrderMutation = useDeleteOrder();
 
   const doctorOptions: Option[] = useMemo(
@@ -76,37 +72,17 @@ export default function Order() {
     }));
   }, []);
 
-  const fetchProducts = useCallback(async (page: number) => {
+  const fetchProducts = useCallback(async () => {
     try {
       setIsLoadingProducts(true);
-      const {
-        products,
-        page: currentPage,
-        totalPages,
-      } = await getPaginatedProducts({
-        page,
-        limit: 20,
-      });
+      const products = await getProductsBrief();
 
-      setProductOptions((prev) => {
-        const mapped = products.map((product) => ({
-          value: String(product.id),
-          label: product.name,
-        }));
+      const mapped = products.map((product) => ({
+        value: String(product.id),
+        label: product.name,
+      }));
 
-        if (page === 1) {
-          return mapped;
-        }
-
-        const existingIds = new Set(prev.map((opt) => opt.value));
-        const filtered = mapped.filter((opt) => !existingIds.has(opt.value));
-        return [...prev, ...filtered];
-      });
-
-      setProductPagination({
-        page: currentPage,
-        totalPages,
-      });
+      setProductOptions(mapped);
     } catch (error) {
       console.error("Error loading products:", error);
     } finally {
@@ -115,19 +91,8 @@ export default function Order() {
   }, []);
 
   useEffect(() => {
-    fetchProducts(1);
+    fetchProducts();
   }, [fetchProducts]);
-
-  const handleLoadMoreProducts = useCallback(() => {
-    if (productPagination.page >= productPagination.totalPages) return;
-    if (isLoadingProducts) return;
-    fetchProducts(productPagination.page + 1);
-  }, [
-    fetchProducts,
-    isLoadingProducts,
-    productPagination.page,
-    productPagination.totalPages,
-  ]);
 
   // Get today's date in YYYY-MM-DD format without timezone issues
   const getTodayDate = () => {
@@ -165,7 +130,7 @@ export default function Order() {
       const data = await getAllOrders(params);
       setOrders(data.data);
       setOrdersCount(data.count);
-      const total = data.total
+      const total = data.total;
       setOrdersTotal(total);
     } finally {
       loading.onFalse();
@@ -188,7 +153,7 @@ export default function Order() {
       const data = await getAllOrders(params);
       setOrders(data.data);
       setOrdersCount(data.data.length);
-      const total = data.total
+      const total = data.total;
       setOrdersTotal(total);
     } finally {
       loading.onFalse();
@@ -270,6 +235,18 @@ export default function Order() {
       isRendering: true,
     },
     {
+      accessorKey: "date",
+      header: "التاريخ",
+      cell: ({ row }) => (
+        <div className="text-sm ">
+          {row.date
+            ? new Date(row.date).toLocaleDateString("en-CA")
+            : new Date().toLocaleDateString("en-CA")}
+        </div>
+      ),
+      isRendering: true,
+    },
+    {
       accessorKey: "paid",
       header: "المبلغ المدفوع",
       cell: ({ row }) => (
@@ -348,7 +325,7 @@ export default function Order() {
         const data = await getAllOrders(params);
         setOrders(data.data);
         setOrdersCount(data.count);
-        const total = data.total
+        const total = data.total;
         setOrdersTotal(total);
       } finally {
         loading.onFalse();
@@ -436,10 +413,9 @@ export default function Order() {
               }))
             }
             isLoading={isLoadingProducts}
-            onMenuScrollToBottom={handleLoadMoreProducts}
             onMenuOpen={() => {
               if (productOptions.length === 0 && !isLoadingProducts) {
-                fetchProducts(1);
+                fetchProducts();
               }
             }}
           />
@@ -468,10 +444,15 @@ export default function Order() {
         <div className="flex justify-between mb-4 items-center gap-6" dir="rtl">
           <div className="flex items-center gap-6">
             <div className="text-xl font-medium text-gray-700">
-            طلبات  <span className="font-semibold text-gray-900">{ordersCount}</span> 
+              طلبات{" "}
+              <span className="font-semibold text-gray-900">{ordersCount}</span>
             </div>
             <div className="text-xl font-medium text-gray-700">
-            إجمالي المبلغ <span className="font-semibold text-green-600">{ordersTotal.toFixed(2)}</span> $
+              إجمالي المبلغ{" "}
+              <span className="font-semibold text-green-600">
+                {ordersTotal.toFixed(2)}
+              </span>{" "}
+              $
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -481,7 +462,7 @@ export default function Order() {
               className="flex items-center gap-2"
             >
               <Icons.printer className="w-4 h-4" />
-              طباعة تقرير 
+              طباعة تقرير
             </PrintOrdersReportButton>
             <Button type="button" onClick={() => navigate("/orders/add")}>
               اضافة طلب جديد

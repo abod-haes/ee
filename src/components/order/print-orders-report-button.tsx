@@ -2,10 +2,7 @@ import { useCallback, useState } from "react";
 import { Button, type ButtonProps } from "@/components/base/button";
 import { Icons } from "@/lib/icons";
 import { getAllOrders } from "@/services/order.service";
-import {
-  ORDER_STATUS_LABELS,
-  type OrderStatus,
-} from "@/types/order.type";
+import { ORDER_STATUS_LABELS, type OrderStatus } from "@/types/order.type";
 
 export type PrintOrdersReportButtonProps = {
   date?: string;
@@ -38,7 +35,7 @@ export default function PrintOrdersReportButton({
       // Use the provided date, or get today's date if not provided
       const targetDate = date || getTodayDate();
       const d = await getAllOrders({ date: targetDate });
-const orders = d?.data ??[]
+      const orders = d?.data ?? [];
       if (orders.length === 0) {
         alert("لا توجد طلبات للطباعة");
         return;
@@ -48,8 +45,8 @@ const orders = d?.data ??[]
       if (!printWindow) return;
 
       const ordersCount = d.count;
-      const ordersTotal = d.total
-      const renderOrderRow = (order: typeof orders[0], index: number) => {
+      const ordersTotal = d.total;
+      const renderOrderRow = (order: (typeof orders)[0], index: number) => {
         const statusKey = order.status as OrderStatus;
         const statusLabel =
           ORDER_STATUS_LABELS[statusKey] || order.status || "غير معروف";
@@ -107,7 +104,9 @@ const orders = d?.data ??[]
           </div>
           <div class="summary-row">
             <span class="summary-label">إجمالي المبلغ:</span>
-            <span class="summary-value total-amount">${ordersTotal.toFixed(2)} $</span>
+            <span class="summary-value total-amount">${ordersTotal.toFixed(
+              3
+            )} $</span>
           </div>
         </div>
       `;
@@ -123,7 +122,9 @@ const orders = d?.data ??[]
 
           <div class="report-header">
             <div class="report-title">تقرير طلبات اليوم</div>
-            <div class="report-date">التاريخ: ${new Date(targetDate).toLocaleDateString("ar-SA", {
+            <div class="report-date">التاريخ: ${new Date(
+              targetDate
+            ).toLocaleDateString("ar-SA", {
               year: "numeric",
               month: "long",
               day: "numeric",

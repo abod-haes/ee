@@ -1,11 +1,12 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { useForm, useWatch } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { orderSchema, type OrderSchemaType } from "@/lib/schema";
 import { Input } from "@/components/base/input";
 import { Button } from "@/components/base/button";
 import { BaseSelect, type Option } from "@/components/base/select";
 import { useOrder, useUpdateOrder } from "@/hook/useOrder";
+import { useDoctors } from "@/hook/useDoctor";
 import { Icons } from "@/lib/icons";
 import Table, { type Column } from "@/components/table/table";
 import { quantityTypes } from "@/constant/quantity-types";
@@ -47,12 +48,14 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
     refetch: refetchOrder,
   } = useOrder(Number(id));
   const updateOrderMutation = useUpdateOrder();
+  const { data: doctors = [] } = useDoctors();
   const {
     register,
     handleSubmit,
     formState: { errors },
     reset,
-    control,
+    setValue,
+    watch,
   } = useForm<OrderSchemaType>({
     resolver: zodResolver(orderSchema),
   });
@@ -80,6 +83,7 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
       reset({
         discount: orderData.discount || 0,
         paid: orderData.totalPaid || 0,
+        doctorId: orderData.doctorId || undefined,
       });
       // Set cart products
       if (orderData.cartProducts) {
@@ -102,6 +106,7 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
     const updateData = {
       discount: data.discount,
       paid: data.paid,
+      doctorId: data.doctorId,
       products: products.map((p) => ({
         id: p.id === 0 && p.productId ? p.productId : p.id, // Use productId for new products
         quantity: p.quantity,
@@ -270,6 +275,17 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
     [productsBrief]
   );
 
+  const doctorOptions: Option[] = useMemo(
+    () =>
+      doctors.map((d) => ({
+        value: String(d.id),
+        label: d.name,
+      })),
+    [doctors]
+  );
+
+  const doctorId = watch("doctorId");
+
   // Totals summary values (live - recalculates when products, prices, or quantities change)
   const subtotal = useMemo(() => {
     return products.reduce((sum, p) => {
@@ -280,8 +296,8 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
       return sum + safePrice * safeQty;
     }, 0);
   }, [products]);
-  const discountValue = Number(useWatch({ control, name: "discount" }) ?? 0);
-  const paidValue = Number(useWatch({ control, name: "paid" }) ?? 0);
+  const discountValue = Number(watch("discount") ?? 0);
+  const paidValue = Number(watch("paid") ?? 0);
   const totalAfterDiscount = Math.max(subtotal - discountValue, 0);
   const remaining = Math.max(totalAfterDiscount - Math.max(paidValue, 0), 0);
 
@@ -322,7 +338,7 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
               key={`quantity-${row.id}-${row.productName}`}
               type="number"
               min={1}
-              step="any"
+              step="0.01"
               className="w-24 px-2 py-1 border rounded"
               defaultValue={row.quantity}
               onBlur={(e) => {
@@ -346,7 +362,7 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
               key={`price-${row.id}-${row.productName}`}
               type="number"
               min={0}
-              step={0.00001}
+              step="0.01"
               className="w-28 px-2 py-1 border rounded"
               defaultValue={row.price}
               onBlur={(e) => {
@@ -409,7 +425,7 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
               key={`total-${row.id}-${row.productName}-${row.price}-${row.quantity}`}
               type="number"
               min={0}
-              step="any"
+              step="0.01"
               className="w-28 px-2 py-1 border rounded font-medium"
               defaultValue={currentTotal.toFixed(2)}
               disabled={updateOrderMutation.isPending}
@@ -532,7 +548,36 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <BaseSelect
+          key={`doctor-select-${doctorId || 'none'}`}
+          label="الطبيب"
+          placeholder="اختر الطبيب"
+          options={doctorOptions}
+          value={
+            doctorId
+              ? doctorOptions.find((o) => o.value === String(doctorId)) || null
+              : null
+          }
+          isDisabled={updateOrderMutation.isPending}
+          onChange={(opt) => {
+            if (opt && !Array.isArray(opt) && "value" in opt) {
+              const newDoctorId = parseInt(opt.value);
+              setValue("doctorId", newDoctorId, {
+                shouldValidate: true,
+                shouldDirty: true,
+                shouldTouch: true,
+              });
+            } else {
+              setValue("doctorId", undefined, {
+                shouldValidate: true,
+                shouldDirty: true,
+                shouldTouch: true,
+              });
+            }
+          }}
+        />
+
         <Input
           id="discount"
           label="الخصم"

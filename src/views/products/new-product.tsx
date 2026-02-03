@@ -416,7 +416,7 @@ const AddProductForm = ({ onClose, onAdded }: AddNewProductProp) => {
             label="السعر"
             placeholder="أدخل السعر"
             type="number"
-            step="any"
+            step="0.01"
             {...register("price")}
             error={errors.price?.message}
           />
@@ -426,7 +426,7 @@ const AddProductForm = ({ onClose, onAdded }: AddNewProductProp) => {
             label="السعر الصافي"
             placeholder="أدخل السعر الصافي"
             type="number"
-            step="any"
+            step="0.01"
             {...register("netPrice")}
             error={errors.netPrice?.message}
           />
@@ -478,7 +478,7 @@ const AddProductForm = ({ onClose, onAdded }: AddNewProductProp) => {
             label="الكمية"
             placeholder="أدخل الكمية"
             type="number"
-            step="any"
+            step="0.01"
             {...register("quantity", {
               setValueAs: (v) => {
                 if (v === "" || v === null || v === undefined) return undefined;
@@ -527,7 +527,7 @@ const AddProductForm = ({ onClose, onAdded }: AddNewProductProp) => {
             label="الحد الأدنى"
             placeholder="أدخل الحد الأدنى"
             type="number"
-            step="any"
+            step="0.01"
             {...register("minimum", {
               setValueAs: (v) => {
                 if (v === "" || v === null || v === undefined) return undefined;

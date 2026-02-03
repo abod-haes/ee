@@ -10,6 +10,7 @@ export type LoginSchemaType = z.infer<typeof loginSchema>;
 export const orderSchema = z.object({
   discount: z.number().optional(),
   paid: z.number().optional(),
+  doctorId: z.number().optional(),
   products: z
     .array(
       z.object({
