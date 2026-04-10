@@ -1,0 +1,580 @@
+import { useCallback, useMemo, useState } from "react";
+import { Button, type ButtonProps } from "@/components/base/button";
+import { Icons } from "@/lib/icons";
+import { getOrderById } from "@/services/order.service";
+import {
+  ORDER_STATUS_LABELS,
+  type CartProduct,
+  type Order,
+  type OrderStatus,
+} from "@/types/order.type";
+import { quantityTypes } from "@/constant/quantity-types";
+
+export type PrintAllOrdersButtonProps = {
+  orderIds: Array<number | string>;
+  label?: string;
+  withIcon?: boolean;
+} & Omit<ButtonProps, "type" | "onClick">;
+
+const ROWS_FIRST_PAGE = 10;
+const ROWS_OTHER_PAGES = 18;
+
+function splitProductsIntoPages(products: CartProduct[]) {
+  if (products.length === 0) return [[]] as CartProduct[][];
+
+  const pages: CartProduct[][] = [products.slice(0, ROWS_FIRST_PAGE)];
+  for (let i = ROWS_FIRST_PAGE; i < products.length; i += ROWS_OTHER_PAGES) {
+    pages.push(products.slice(i, i + ROWS_OTHER_PAGES));
+  }
+  return pages;
+}
+
+function renderProductRow(product: CartProduct) {
+  const qtyTypeLabel =
+    quantityTypes.find((q) => q.value === String(product.product?.quantityType))
+      ?.label ?? "-";
+  const qty = Number(product.quantity) || 0;
+  const price = Number(product.productPrice) || 0;
+  const lineTotal = qty * price;
+
+  return `
+    <tr class="product-row">
+      <td>${lineTotal.toFixed(2)} $</td>
+      <td>${product.product?.name || "-"}</td>
+      <td>${product.quantity ?? "-"}</td>
+      <td>${qtyTypeLabel}</td>
+      <td>${product.productPrice ?? "-"}</td>
+      <td class="notes-cell">${product.notes || "-"}</td>
+    </tr>
+  `;
+}
+
+function renderItemsTable(pageProducts: CartProduct[]) {
+  const rowsHtml =
+    pageProducts.length > 0
+      ? pageProducts.map(renderProductRow).join("")
+      : `<tr><td colspan="6" style="text-align:center;">لا توجد منتجات</td></tr>`;
+
+  return `
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th>القيمة الاجمالية</th>
+          <th>نوع البضاعة</th>
+          <th>العدد</th>
+          <th>نوع الكمية</th>
+          <th>السعر الافرادي</th>
+          <th>ملاحظات</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rowsHtml}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderOrderPages(orderData: Order) {
+  const subtotal = Number(orderData.total) || 0;
+  const discount = Number(orderData.discount) || 0;
+  const totalPaid = Number(orderData.totalPaid) || Number(orderData.paid) || 0;
+  const rest = Number(orderData.rest) || 0;
+
+  const statusKey = orderData.status as OrderStatus;
+  const statusLabel =
+    ORDER_STATUS_LABELS[statusKey] || orderData.status || "غير معروف";
+
+  const products = orderData.cartProducts ?? [];
+  const pages = splitProductsIntoPages(products);
+
+  const headerHtml = `
+    <div class="header" style="direction: ltr;">
+      <div class="header-top">
+        <div class="company-section">
+          <img src="${window.location.origin}/assets/images/botton-logo.png"
+               alt="شركة الشرق لطب الأسنان" class="logo-img" />
+        </div>
+      </div>
+
+      <div class="invoice-header">
+        <div style="display:flex; flex-direction:row; align-items:center; gap:5px; justify-content:space-between; width:100%;">
+          <div class="invoice-number">رقم الطلب: ${orderData.id}</div>
+          <div class="order-status">الحالة: ${statusLabel}</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const recipientHtml = `
+    <div class="recipient-info">
+      <span>الدكتور المحترم: <strong>${
+        orderData.doctor?.name || orderData.RepName || ""
+      }</strong></span>
+      <span>التاريخ: <strong>${
+        orderData.date
+          ? new Date(orderData.date).toLocaleDateString("en-CA")
+          : new Date().toLocaleDateString("en-CA")
+      }</strong></span>
+    </div>
+  `;
+
+  const totalsAndFooterHtml = `
+    <div class="total-section">
+      <div class="total-row">
+        <span class="total-label">المجموع الفرعي:</span>
+        <span class="total-amount">${subtotal.toFixed(2)} $</span>
+      </div>
+
+      ${
+        discount > 0
+          ? `
+            <div class="total-row">
+              <span class="total-label">الخصم:</span>
+              <span class="total-amount" style="color:#dc2626;">-${discount.toFixed(
+                2
+              )} $</span>
+            </div>
+          `
+          : ""
+      }
+
+      <div class="total-row" style="margin-top: 10px;">
+        <span class="total-label">المبلغ المدفوع:</span>
+        <span class="total-amount" style="color:#16a34a;">${totalPaid.toFixed(
+          2
+        )} $</span>
+      </div>
+
+      <div class="total-row" style="margin-top: 10px;">
+        <span class="total-label">المبلغ المتبقي:</span>
+        <span class="total-amount" style="color:#dc2626;">${rest.toFixed(
+          3
+        )} $</span>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="footer-content">
+        <div class="footer-section" style="direction: ltr;">
+          <div>021 222 40 72</div>
+          <div>0962 476408</div>
+          <div>0933 495867</div>
+         </div>
+        <div class="footer-section">
+          <div>
+            <svg class="social-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" fill="#1877F2"/>
+            </svg>
+            <span>الشرق لطب الأسنان</span>
+          </div>
+          <div style="direction: rtl;">
+            <svg class="social-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" fill="#E4405F"/>
+            </svg>
+            <span>the_east_for_dental_supplies</span>
+          </div>
+        </div>
+        <div class="footer-section">
+          <div>حلب -جسر الميرديان(جسر كعكة)- جانب مشاوي الهدى</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  return pages
+    .map((pageProducts, pageIndex) => {
+      const isFirst = pageIndex === 0;
+      const isLastInOrder = pageIndex === pages.length - 1;
+
+      return `
+        <div class="page">
+          ${headerHtml}
+          ${isFirst ? recipientHtml : ""}
+          ${renderItemsTable(pageProducts)}
+          ${isLastInOrder ? totalsAndFooterHtml : ""}
+        </div>
+      `;
+    })
+    .join("");
+}
+
+export default function PrintAllOrdersButton({
+  orderIds,
+  label,
+  withIcon = true,
+  disabled,
+  children,
+  ...buttonProps
+}: PrintAllOrdersButtonProps) {
+  const [isPrinting, setIsPrinting] = useState(false);
+
+  const uniqueOrderIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          orderIds
+            .map((id) => Number(id))
+            .filter((id) => Number.isFinite(id) && id > 0)
+        )
+      ),
+    [orderIds]
+  );
+
+  const handlePrint = useCallback(async () => {
+    if (uniqueOrderIds.length === 0) {
+      alert("لا توجد طلبات للطباعة");
+      return;
+    }
+
+    try {
+      setIsPrinting(true);
+
+      const detailsResults = await Promise.allSettled(
+        uniqueOrderIds.map((id) => getOrderById(id))
+      );
+
+      const detailedOrders: Order[] = detailsResults
+        .filter(
+          (result): result is PromiseFulfilledResult<Order> =>
+            result.status === "fulfilled"
+        )
+        .map((result) => result.value);
+
+      if (detailedOrders.length === 0) {
+        alert("تعذر تحميل تفاصيل الطلبات للطباعة");
+        return;
+      }
+
+      const failedCount = detailsResults.length - detailedOrders.length;
+
+      const printWindow = window.open("", "_blank");
+      if (!printWindow) return;
+
+      const pagesHtml = detailedOrders.map((order) => renderOrderPages(order)).join("");
+
+      const html = `
+        <!DOCTYPE html>
+        <html dir="rtl" lang="ar">
+        <head>
+          <meta charset="UTF-8">
+          <title>طباعة كل الفواتير</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+          <link rel="preconnect" href="https://fonts.googleapis.com" />
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+          <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
+
+          <style>
+            body {
+              font-family: 'Tajawal', 'Arial', sans-serif;
+              margin: 0;
+              padding: 20px;
+              background: transparent;
+              direction: rtl;
+              text-align: right;
+              background-image:
+                linear-gradient(to right, #ce1432 0.5px, transparent 0.5px),
+                linear-gradient(to bottom, #ce1432 0.5px, transparent 0.5px);
+              background-size: 25px 25px;
+              background-position: 0 0, 0 0;
+              line-height: 1.4;
+              position: relative;
+            }
+
+            .watermark {
+              position: fixed;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%);
+              opacity: 0.08;
+              z-index: 0;
+              pointer-events: none;
+              width: 60%;
+              max-width: 500px;
+              height: auto;
+            }
+
+            .content-wrapper { position: relative; z-index: 1; }
+
+            .header {
+              margin-bottom: 15px;
+              border: 2px solid #ce1432;
+              padding: 20px;
+              background: transparent;
+              position: relative;
+              box-shadow: 0 2px 4px rgba(206, 20, 50, 0.1);
+            }
+
+            .header-top {
+              display: flex;
+              flex-direction: row;
+              align-items: center;
+              justify-content: center;
+              gap: 15px;
+              margin-bottom: 15px;
+              width: 100%;
+            }
+
+            .company-section {
+              text-align: center;
+              flex-shrink: 0;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              margin: 0 auto;
+            }
+
+            .logo-img {
+              max-width: 150px;
+              max-height: 100px;
+              height: auto;
+              width: auto;
+              object-fit: contain;
+            }
+
+            .invoice-header {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-end;
+              margin-top: 10px;
+              padding-top: 10px;
+              border-top: 1px solid #ce1432;
+            }
+
+            .invoice-number {
+              font-size: 18px;
+              font-weight: bold;
+              color: #ce1432;
+            }
+
+            .order-status {
+              font-size: 14px;
+              font-weight: bold;
+              color: #ce1432;
+              padding: 5px 10px;
+              border: 1px solid #ce1432;
+              border-radius: 4px;
+              display: inline-block;
+            }
+
+            .recipient-info {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin: 15px 0;
+              padding: 12px 15px;
+              border: 1px solid #ce1432;
+              background: transparent;
+              font-size: 14px;
+              color: #333;
+            }
+
+            .recipient-info span {
+              margin: 0 10px;
+            }
+
+            .recipient-info strong {
+              color: #ce1432;
+              font-weight: 600;
+            }
+
+            .items-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 15px;
+              background: transparent;
+              border: 2px solid #ce1432;
+              box-shadow: 0 2px 4px rgba(206, 20, 50, 0.1);
+            }
+
+            .items-table th, .items-table td {
+              border: 1px solid #ce1432;
+              padding: 12px 8px;
+              text-align: right;
+              font-size: 15px;
+              vertical-align: middle;
+            }
+
+            .items-table th {
+              background-color: #fef2f2;
+              font-weight: bold;
+              color: #ce1432;
+              font-size: 16px;
+            }
+
+            .product-row:nth-child(even) { background-color: #fefefe; }
+
+            .total-section {
+              margin-top: 10px;
+              padding: 15px;
+              border: 1px solid #ce1432;
+              background: transparent;
+              text-align: right;
+            }
+
+            .total-row {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 5px;
+            }
+
+            .total-label { font-size: 14px; color: #333; }
+            .total-amount { font-size: 18px; font-weight: bold; color: #ce1432; }
+
+            .footer {
+              margin-top: 20px;
+              padding: 15px 20px;
+              border: 2px solid #ce1432;
+              background: transparent;
+              box-shadow: 0 2px 4px rgba(206, 20, 50, 0.1);
+              text-align: center;
+            }
+
+            .footer-content {
+              display: flex;
+              flex-wrap: wrap;
+              justify-content: space-around;
+              align-items: flex-start;
+              gap: 20px;
+              font-size: 12px;
+              color: #333;
+            }
+
+            .footer-section { text-align: center; flex: 1;  }
+            .footer-section div {
+              margin: 3px 0;
+              line-height: 1.4;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: 5px;
+            }
+            .social-icon {
+              width: 14px;
+              height: 14px;
+              fill: currentColor;
+            }
+
+            .page {
+              break-after: auto;
+              page-break-after: auto;
+            }
+            .page:not(:last-child) {
+              break-after: page;
+              page-break-after: always;
+            }
+
+            .items-table tr, .items-table td, .items-table th {
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
+
+            .notes-cell {
+              max-width: 220px;
+              white-space: normal;
+              word-break: break-word;
+            }
+
+            .header, .recipient-info, .total-section, .footer, .items-table {
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
+
+            @media print {
+              * {
+                -webkit-print-color-adjust: exact !important;
+                color-adjust: exact !important;
+              }
+              body {
+                margin: 0 !important;
+                padding: 20px !important;
+                background: white !important;
+              }
+              .watermark {
+                opacity: 0.08 !important;
+                width: 60% !important;
+                max-width: 500px !important;
+              }
+              .social-icon {
+                width: 12px !important;
+                height: 12px !important;
+                print-color-adjust: exact !important;
+                -webkit-print-color-adjust: exact !important;
+              }
+              .footer-section div {
+                margin: 2px 0 !important;
+              }
+              @page {
+                margin: 0 !important;
+                size: A4;
+              }
+            }
+          </style>
+        </head>
+
+        <body>
+          <img src="${window.location.origin}/assets/images/top-logo.png" alt="Watermark" class="watermark" />
+          <div class="content-wrapper">
+            ${pagesHtml}
+          </div>
+        </body>
+        </html>
+      `;
+
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+
+      printWindow.document.title = `فواتير الطلبات (${detailedOrders.length})`;
+
+      printWindow.onload = () => {
+        setTimeout(() => {
+          try {
+            printWindow.focus();
+            printWindow.print();
+          } catch {
+            printWindow.print();
+          }
+        }, 300);
+      };
+
+      printWindow.addEventListener("afterprint", () => {
+        setTimeout(() => {
+          printWindow.close();
+        }, 100);
+      });
+
+      setTimeout(() => {
+        if (!printWindow.closed) printWindow.close();
+      }, 30000);
+
+      if (failedCount > 0) {
+        alert(`تمت طباعة ${detailedOrders.length} فاتورة وتعذر تحميل ${failedCount} فاتورة`);
+      }
+    } catch (error) {
+      console.error("Error printing all orders:", error);
+      alert("حدث خطأ في طباعة الفواتير");
+    } finally {
+      setIsPrinting(false);
+    }
+  }, [uniqueOrderIds]);
+
+  return (
+    <Button
+      type="button"
+      onClick={handlePrint}
+      disabled={disabled || isPrinting}
+      {...buttonProps}
+    >
+      {children ? (
+        children
+      ) : (
+        <>
+          {withIcon && <Icons.printer className="w-4 h-4" />}
+          {label ?? "طباعة كل الفواتير"}
+        </>
+      )}
+    </Button>
+  );
+}

@@ -18,6 +18,7 @@ import { Icons } from "@/lib/icons";
 import { getProductsBrief } from "@/services/product.service";
 import PrintOrderButton from "@/components/order/print-order-button";
 import PrintOrdersReportButton from "@/components/order/print-orders-report-button";
+import PrintAllOrdersButton from "@/components/order/print-all-orders-button";
 import Dialog from "@/components/base/dialog";
 import { useDeleteOrder } from "@/hook/useOrder";
 
@@ -464,6 +465,14 @@ export default function Order() {
               <Icons.printer className="w-4 h-4" />
               طباعة تقرير
             </PrintOrdersReportButton>
+            <PrintAllOrdersButton
+              orderIds={orders.map((order) => order.id)}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <Icons.printer className="w-4 h-4" />
+              طباعة كل الفواتير
+            </PrintAllOrdersButton>
             <Button type="button" onClick={() => navigate("/orders/add")}>
               اضافة طلب جديد
             </Button>
