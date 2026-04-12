@@ -29,6 +29,13 @@ const STATUS_CODE_MAP: Array<{ code: string; status: OrderStatus }> = [
   { code: "3", status: "unpaid" },
 ];
 
+const formatOrderDate = (date?: string) => {
+  if (!date) return "-";
+  const parsedDate = new Date(date);
+  if (Number.isNaN(parsedDate.getTime())) return "-";
+  return parsedDate.toLocaleDateString("en-CA");
+};
+
 export default function Order() {
   const loading = useBoolean(false);
   const del = useBoolean(false);
@@ -237,16 +244,13 @@ export default function Order() {
     },
     {
       accessorKey: "date",
-      header: "التاريخ",
+      header: "تاريخ الفاتورة",
       cell: ({ row }) => (
-        <div className="text-sm ">
-          {row.date
-            ? new Date(row.date).toLocaleDateString("en-CA")
-            : new Date().toLocaleDateString("en-CA")}
-        </div>
+        <div className="text-sm ">{formatOrderDate(row.date)}</div>
       ),
       isRendering: true,
     },
+  
     {
       accessorKey: "paid",
       header: "المبلغ المدفوع",

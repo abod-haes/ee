@@ -9,6 +9,16 @@ import {
 } from "@/types/order.type";
 import { quantityTypes } from "@/constant/quantity-types";
 
+const formatInvoiceDate = (date?: string, createdAt?: string) => {
+  const invoiceDate = date || createdAt;
+  if (!invoiceDate) return "-";
+
+  const parsedDate = new Date(invoiceDate);
+  if (Number.isNaN(parsedDate.getTime())) return "-";
+
+  return parsedDate.toLocaleDateString("en-CA");
+};
+
 export type PrintOrderButtonProps = {
   orderId: number | string;
   label?: string;
@@ -29,7 +39,6 @@ export default function PrintOrderButton({
     try {
       setIsPrinting(true);
       const orderData = await getOrderById(orderId);
-      console.log(orderData.date);
       const printWindow = window.open("", "_blank");
       if (!printWindow) return;
 
@@ -136,9 +145,7 @@ export default function PrintOrderButton({
             orderData.doctor?.name || orderData.RepName || ""
           }</strong></span>
             <span>التاريخ: <strong>${
-              orderData.date
-                ? new Date(orderData.date).toLocaleDateString("en-CA")
-                : new Date().toLocaleDateString("en-CA")
+              formatInvoiceDate(orderData.date, orderData.createdAt)
             }</strong></span>
         </div>
       `;

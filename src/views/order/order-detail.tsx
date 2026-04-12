@@ -32,6 +32,9 @@ type OrderProductEditRow = {
   quantityType: number;
 };
 
+const roundToThreeDecimals = (value: number) =>
+  Math.round((value + Number.EPSILON) * 1000) / 1000;
+
 const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
   const [products, setProducts] = useState<OrderProductEditRow[]>([]);
   const [productsBrief, setProductsBrief] = useState<ProductBrief[]>([]);
@@ -103,10 +106,15 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
   }, [orderData, reset]);
 
   const onSubmit = async (data: OrderSchemaType) => {
+    const selectedDoctorId = Number(doctorId ?? orderData?.doctorId ?? 0);
+
     const updateData = {
       discount: data.discount,
       paid: data.paid,
-      doctorId: data.doctorId,
+      doctorId:
+        Number.isFinite(selectedDoctorId) && selectedDoctorId > 0
+          ? selectedDoctorId
+          : undefined,
       products: products.map((p) => ({
         id: p.id === 0 && p.productId ? p.productId : p.id, // Use productId for new products
         quantity: p.quantity,
@@ -242,7 +250,7 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
       const product = newProducts[index];
       if (product.quantity > 0) {
         // Calculate new price: price = total / quantity
-        const newPrice = total / product.quantity;
+        const newPrice = roundToThreeDecimals(total / product.quantity);
         newProducts[index] = {
           ...product,
           price: newPrice,
@@ -362,7 +370,7 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
               key={`price-${row.id}-${row.productName}`}
               type="number"
               min={0}
-              step="0.01"
+              step="0.001"
               className="w-28 px-2 py-1 border rounded"
               defaultValue={row.price}
               onBlur={(e) => {
@@ -425,9 +433,9 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
               key={`total-${row.id}-${row.productName}-${row.price}-${row.quantity}`}
               type="number"
               min={0}
-              step="0.01"
+              step="0.001"
               className="w-28 px-2 py-1 border rounded font-medium"
-              defaultValue={currentTotal.toFixed(2)}
+              defaultValue={currentTotal.toFixed(3)}
               disabled={updateOrderMutation.isPending}
               onBlur={(e) => {
                 const index = products.findIndex(

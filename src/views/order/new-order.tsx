@@ -36,6 +36,9 @@ interface OrderProduct {
   quantityType?: number;
 }
 
+const roundToThreeDecimals = (value: number) =>
+  Math.round((value + Number.EPSILON) * 1000) / 1000;
+
 export type AddNewOrderProp = {
   onClose: () => void;
   onAdded: () => void;
@@ -267,10 +270,10 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
       const product = newProducts[index];
       if (product.quantity > 0) {
         // Calculate new price: price = total / quantity
-        const newPrice = (total / product.quantity).toFixed(2);
+        const newPrice = roundToThreeDecimals(total / product.quantity);
         newProducts[index] = {
           ...product,
-          price: newPrice,
+          price: newPrice.toFixed(3),
         };
       }
       return newProducts;
@@ -418,7 +421,7 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
               key={`price-${row.id}`}
               type="number"
               min={0}
-              step="0.01"
+              step="0.001"
               className="w-28 px-2 py-1 border rounded"
               defaultValue={row.price}
               disabled={isSubmitting || isLoadingProducts || isLoadingUser}
@@ -468,9 +471,9 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
               key={`total-${row.id}-${row.price}-${row.quantity}`}
               type="number"
               min={0}
-              step="0.01"
+              step="0.001"
               className="w-28 px-2 py-1 border rounded text-sm font-medium"
-              defaultValue={currentTotal.toFixed(2)}
+              defaultValue={currentTotal.toFixed(3)}
               disabled={isSubmitting || isLoadingProducts || isLoadingUser}
               onBlur={(e) => {
                 const index = products.findIndex((p) => p.id === row.id);

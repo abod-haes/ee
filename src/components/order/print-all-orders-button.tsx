@@ -19,6 +19,16 @@ export type PrintAllOrdersButtonProps = {
 const ROWS_FIRST_PAGE = 10;
 const ROWS_OTHER_PAGES = 18;
 
+const formatInvoiceDate = (date?: string, createdAt?: string) => {
+  const invoiceDate = date || createdAt;
+  if (!invoiceDate) return "-";
+
+  const parsedDate = new Date(invoiceDate);
+  if (Number.isNaN(parsedDate.getTime())) return "-";
+
+  return parsedDate.toLocaleDateString("en-CA");
+};
+
 function splitProductsIntoPages(products: CartProduct[]) {
   if (products.length === 0) return [[]] as CartProduct[][];
 
@@ -111,9 +121,7 @@ function renderOrderPages(orderData: Order) {
         orderData.doctor?.name || orderData.RepName || ""
       }</strong></span>
       <span>التاريخ: <strong>${
-        orderData.date
-          ? new Date(orderData.date).toLocaleDateString("en-CA")
-          : new Date().toLocaleDateString("en-CA")
+        formatInvoiceDate(orderData.date, orderData.createdAt)
       }</strong></span>
     </div>
   `;
