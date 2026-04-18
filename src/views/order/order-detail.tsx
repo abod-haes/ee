@@ -24,7 +24,7 @@ export type EditOrderProp = {
 
 type OrderProductEditRow = {
   id: number; // cart_product id (0 for new products)
-  productId?: number; // actual product id (for new products)
+  productId?: number; // actual product id
   quantity: number;
   notes: string;
   price: number;
@@ -32,8 +32,17 @@ type OrderProductEditRow = {
   quantityType: number;
 };
 
-const roundToThreeDecimals = (value: number) =>
-  Math.round((value + Number.EPSILON) * 1000) / 1000;
+const normalizeUnitPriceFromTotal = (total: number, quantity: number) => {
+  if (
+    !Number.isFinite(total) ||
+    !Number.isFinite(quantity) ||
+    quantity <= 0
+  ) {
+    return 0;
+  }
+
+  return Number((total / quantity).toFixed(6));
+};
 
 const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
   const [products, setProducts] = useState<OrderProductEditRow[]>([]);
@@ -92,7 +101,8 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
       if (orderData.cartProducts) {
         const formattedProducts: OrderProductEditRow[] =
           orderData.cartProducts.map((cp) => ({
-            id: cp.productId,
+            id: cp.id,
+            productId: cp.productId,
             quantity: cp.quantity || 0,
             notes: cp.notes || "",
             price: cp.productPrice || 0,
@@ -148,7 +158,7 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
   const addProductToOrder = useCallback((foundProduct: ProductBrief) => {
     setProducts((prev) => {
       const existingIndex = prev.findIndex(
-        (p) => p.productName === foundProduct.name
+        (p) => p.productId === foundProduct.id
       );
       if (existingIndex >= 0) {
         const next = [...prev];
@@ -248,9 +258,9 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
     setProducts((prev) => {
       const newProducts = [...prev];
       const product = newProducts[index];
-      if (product.quantity > 0) {
-        // Calculate new price: price = total / quantity
-        const newPrice = roundToThreeDecimals(total / product.quantity);
+      if (product && product.quantity > 0) {
+        // Keep line total stable by deriving unit price with higher precision.
+        const newPrice = normalizeUnitPriceFromTotal(total, product.quantity);
         newProducts[index] = {
           ...product,
           price: newPrice,
@@ -267,6 +277,7 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
   type ProductRow = {
     rowIndex: number;
     id: number;
+    productId?: number;
     productName: string;
     quantity: number;
     price: number;
@@ -343,14 +354,16 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
         cell: ({ row }) => {
           return (
             <input
-              key={`quantity-${row.id}-${row.productName}`}
+              key={`quantity-${row.rowIndex}-${row.id}-${row.productId ?? 0}`}
               type="number"
               min={1}
-              step="0.01"
+              step="0.001"
               className="w-24 px-2 py-1 border rounded"
               defaultValue={row.quantity}
               onBlur={(e) => {
-                const index = products.findIndex((p) => p.id === row.id);
+                const index = products.findIndex(
+                  (p) => p.id === row.id && p.productId === row.productId
+                );
                 const value = Number(e.target.value);
                 if (value >= 1 && value !== row.quantity) {
                   handleProductChange(index, "quantity", value);
@@ -367,14 +380,16 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
         cell: ({ row }) => {
           return (
             <input
-              key={`price-${row.id}-${row.productName}`}
+              key={`price-${row.rowIndex}-${row.id}-${row.productId ?? 0}`}
               type="number"
               min={0}
               step="0.001"
               className="w-28 px-2 py-1 border rounded"
               defaultValue={row.price}
               onBlur={(e) => {
-                const index = products.findIndex((p) => p.id === row.id);
+                const index = products.findIndex(
+                  (p) => p.id === row.id && p.productId === row.productId
+                );
                 const value = Number(e.target.value);
                 if (value !== row.price) {
                   handleProductChange(index, "price", value);
@@ -406,12 +421,14 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
         cell: ({ row }) => {
           return (
             <input
-              key={`notes-${row.id}-${row.productName}`}
+              key={`notes-${row.rowIndex}-${row.id}-${row.productId ?? 0}`}
               type="text"
               className="w-64 px-2 py-1 border rounded"
               defaultValue={row.notes}
               onBlur={(e) => {
-                const index = products.findIndex((p) => p.id === row.id);
+                const index = products.findIndex(
+                  (p) => p.id === row.id && p.productId === row.productId
+                );
                 const value = e.target.value;
                 if (value !== row.notes) {
                   handleProductChange(index, "notes", value);
@@ -430,7 +447,7 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
           const currentTotal = row.quantity * row.price;
           return (
             <input
-              key={`total-${row.id}-${row.productName}-${row.price}-${row.quantity}`}
+              key={`total-${row.rowIndex}-${row.id}-${row.productId ?? 0}-${row.price}-${row.quantity}`}
               type="number"
               min={0}
               step="0.001"
@@ -439,10 +456,10 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
               disabled={updateOrderMutation.isPending}
               onBlur={(e) => {
                 const index = products.findIndex(
-                  (p) => p.id === row.id && p.productName === row.productName
+                  (p) => p.id === row.id && p.productId === row.productId
                 );
                 const value = Number(e.target.value) || 0;
-                if (value >= 0 && value !== currentTotal) {
+                if (value >= 0 && Math.abs(value - currentTotal) > 0.0005) {
                   handleTotalChange(index, value);
                 }
               }}
@@ -456,7 +473,7 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
         isRendering: true,
         cell: ({ row }) => {
           const index = products.findIndex(
-            (p) => p.id === row.id && p.productName === row.productName
+            (p) => p.id === row.id && p.productId === row.productId
           );
           return (
             <Button
@@ -590,7 +607,7 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
           id="discount"
           label="الخصم"
           type="number"
-          step="0.01"
+          step="0.001"
           placeholder="أدخل الخصم"
           {...register("discount", {
             setValueAs: (v) => {
@@ -606,7 +623,7 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
           id="paid"
           label="المبلغ المدفوع "
           type="number"
-          step="0.01"
+          step="0.001"
           placeholder="أدخل المبلغ المدفوع"
           {...register("paid", {
             setValueAs: (v) => {

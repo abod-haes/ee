@@ -36,8 +36,18 @@ interface OrderProduct {
   quantityType?: number;
 }
 
-const roundToThreeDecimals = (value: number) =>
-  Math.round((value + Number.EPSILON) * 1000) / 1000;
+const formatUnitPriceFromTotal = (total: number, quantity: number) => {
+  if (
+    !Number.isFinite(total) ||
+    !Number.isFinite(quantity) ||
+    quantity <= 0
+  ) {
+    return "0";
+  }
+
+  const unitPrice = total / quantity;
+  return unitPrice.toFixed(6).replace(/\.?0+$/, "");
+};
 
 export type AddNewOrderProp = {
   onClose: () => void;
@@ -268,12 +278,12 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
     setProducts((prev) => {
       const newProducts = [...prev];
       const product = newProducts[index];
-      if (product.quantity > 0) {
-        // Calculate new price: price = total / quantity
-        const newPrice = roundToThreeDecimals(total / product.quantity);
+      if (product && product.quantity > 0) {
+        // Keep line total stable by deriving unit price with higher precision.
+        const newPrice = formatUnitPriceFromTotal(total, product.quantity);
         newProducts[index] = {
           ...product,
-          price: newPrice.toFixed(3),
+          price: newPrice,
         };
       }
       return newProducts;
@@ -396,7 +406,7 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
               key={`quantity-${row.id}`}
               type="number"
               min={1}
-              step="0.01"
+              step="0.001"
               className="w-24 px-2 py-1 border rounded"
               defaultValue={row.quantity}
               disabled={isSubmitting || isLoadingProducts || isLoadingUser}
@@ -478,7 +488,7 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
               onBlur={(e) => {
                 const index = products.findIndex((p) => p.id === row.id);
                 const value = parseFloat(e.target.value) || 0;
-                if (value >= 0 && value !== currentTotal) {
+                if (value >= 0 && Math.abs(value - currentTotal) > 0.0005) {
                   handleTotalChange(index, value);
                 }
               }}
@@ -647,7 +657,7 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
           placeholder="0"
           type="number"
           min="0"
-          step="0.01"
+          step="0.001"
           defaultValue={0}
           disabled={isSubmitting || isLoadingUser}
           {...register("discount", {
@@ -665,7 +675,7 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
           placeholder="0"
           type="number"
           min="0"
-          step="0.01"
+          step="0.001"
           defaultValue={0}
           disabled={isSubmitting || isLoadingUser}
           {...register("paid", {
