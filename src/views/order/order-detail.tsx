@@ -41,7 +41,7 @@ const normalizeUnitPriceFromTotal = (total: number, quantity: number) => {
     return 0;
   }
 
-  return Number((total / quantity).toFixed(6));
+  return Number((total / quantity).toFixed(3));
 };
 
 const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
@@ -653,31 +653,31 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
                 <div className="flex items-center justify-between">
                   <span className="text-(--base-600)">المجموع الفرعي</span>
                   <span className="font-semibold text-(--base-900)">
-                    {subtotal.toFixed(2)} $
+                    {subtotal.toFixed(3)} $
                   </span>
                 </div>
                 <div className="flex items-center justify-between border-t border-(--base-200) pt-2">
                   <span className="text-(--base-600)">الخصم</span>
                   <span className="font-semibold text-red-600">
-                    -{discountValue.toFixed(2)} $
+                    -{discountValue.toFixed(3)} $
                   </span>
                 </div>
                 <div className="flex items-center justify-between border-t border-(--base-200) pt-2">
                   <span className="text-(--base-600)">الإجمالي بعد الخصم</span>
                   <span className="font-semibold text-(--base-900)">
-                    {totalAfterDiscount.toFixed(2)} $
+                    {totalAfterDiscount.toFixed(3)} $
                   </span>
                 </div>
                 <div className="flex items-center justify-between border-t border-(--base-200) pt-2">
                   <span className="text-(--base-600)">المدفوع</span>
                   <span className="font-semibold text-green-600">
-                    {paidValue.toFixed(2)} $
+                    {paidValue.toFixed(3)} $
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-xl border-t border-(--base-200) pt-2">
                   <span className="text-(--base-600)">المتبقي</span>
                   <span className="font-semibold text-red-600">
-                    {remaining.toFixed(2)} $
+                    {remaining.toFixed(3)} $
                   </span>
                 </div>
               </div>
