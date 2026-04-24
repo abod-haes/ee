@@ -126,7 +126,8 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
           ? selectedDoctorId
           : undefined,
       products: products.map((p) => ({
-        id: p.id === 0 && p.productId ? p.productId : p.id, // Use productId for new products
+        // API expects product id (not cart_product row id)
+        id: p.productId ?? p.id,
         quantity: p.quantity,
         notes: p.notes,
         price: p.price,
