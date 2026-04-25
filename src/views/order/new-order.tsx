@@ -36,6 +36,13 @@ interface OrderProduct {
   quantityType?: number;
 }
 
+const PRICE_SCALE_FACTOR = 1000;
+
+const roundUpToThreeDecimals = (value: number) => {
+  const normalized = Number(value.toFixed(9));
+  return Math.ceil(normalized * PRICE_SCALE_FACTOR) / PRICE_SCALE_FACTOR;
+};
+
 const formatUnitPriceFromTotal = (total: number, quantity: number) => {
   if (
     !Number.isFinite(total) ||
@@ -45,7 +52,7 @@ const formatUnitPriceFromTotal = (total: number, quantity: number) => {
     return "0.000";
   }
 
-  const unitPrice = total / quantity;
+  const unitPrice = roundUpToThreeDecimals(total / quantity);
   return unitPrice.toFixed(3);
 };
 
@@ -428,7 +435,7 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
         cell: ({ row }) => {
           return (
             <input
-              key={`price-${row.id}`}
+              key={`price-${row.id}-${row.price}`}
               type="number"
               min={0}
               step="0.001"

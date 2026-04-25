@@ -32,6 +32,13 @@ type OrderProductEditRow = {
   quantityType: number;
 };
 
+const PRICE_SCALE_FACTOR = 1000;
+
+const roundUpToThreeDecimals = (value: number) => {
+  const normalized = Number(value.toFixed(9));
+  return Math.ceil(normalized * PRICE_SCALE_FACTOR) / PRICE_SCALE_FACTOR;
+};
+
 const normalizeUnitPriceFromTotal = (total: number, quantity: number) => {
   if (
     !Number.isFinite(total) ||
@@ -41,7 +48,7 @@ const normalizeUnitPriceFromTotal = (total: number, quantity: number) => {
     return 0;
   }
 
-  return Number((total / quantity).toFixed(3));
+  return roundUpToThreeDecimals(total / quantity);
 };
 
 const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
@@ -381,7 +388,7 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
         cell: ({ row }) => {
           return (
             <input
-              key={`price-${row.rowIndex}-${row.id}-${row.productId ?? 0}`}
+              key={`price-${row.rowIndex}-${row.id}-${row.productId ?? 0}-${row.price}`}
               type="number"
               min={0}
               step="0.001"
