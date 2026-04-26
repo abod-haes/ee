@@ -33,10 +33,16 @@ type OrderProductEditRow = {
 };
 
 const PRICE_SCALE_FACTOR = 1000;
+const MONEY_SCALE_FACTOR = 100;
 
 const roundUpToThreeDecimals = (value: number) => {
   const normalized = Number(value.toFixed(9));
   return Math.ceil(normalized * PRICE_SCALE_FACTOR) / PRICE_SCALE_FACTOR;
+};
+
+const truncateToTwoDecimals = (value: number) => {
+  const normalized = Number(value.toFixed(9));
+  return Math.trunc(normalized * MONEY_SCALE_FACTOR) / MONEY_SCALE_FACTOR;
 };
 
 const normalizeUnitPriceFromTotal = (total: number, quantity: number) => {
@@ -453,21 +459,22 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
         isRendering: true,
         cell: ({ row }) => {
           const currentTotal = row.quantity * row.price;
+          const displayedTotal = truncateToTwoDecimals(currentTotal);
           return (
             <input
               key={`total-${row.rowIndex}-${row.id}-${row.productId ?? 0}-${row.price}-${row.quantity}`}
               type="number"
               min={0}
-              step="0.001"
+              step="0.01"
               className="w-28 px-2 py-1 border rounded font-medium"
-              defaultValue={currentTotal.toFixed(3)}
+              defaultValue={displayedTotal.toFixed(2)}
               disabled={updateOrderMutation.isPending}
               onBlur={(e) => {
                 const index = products.findIndex(
                   (p) => p.id === row.id && p.productId === row.productId
                 );
                 const value = Number(e.target.value) || 0;
-                if (value >= 0 && Math.abs(value - currentTotal) > 0.0005) {
+                if (value >= 0 && Math.abs(value - displayedTotal) > 0.005) {
                   handleTotalChange(index, value);
                 }
               }}
@@ -661,31 +668,31 @@ const EditOrderForm = ({ id, onClose, onAdded }: EditOrderProp) => {
                 <div className="flex items-center justify-between">
                   <span className="text-(--base-600)">المجموع الفرعي</span>
                   <span className="font-semibold text-(--base-900)">
-                    {subtotal.toFixed(3)} $
+                    {truncateToTwoDecimals(subtotal).toFixed(2)} $
                   </span>
                 </div>
                 <div className="flex items-center justify-between border-t border-(--base-200) pt-2">
                   <span className="text-(--base-600)">الخصم</span>
                   <span className="font-semibold text-red-600">
-                    -{discountValue.toFixed(3)} $
+                    -{truncateToTwoDecimals(discountValue).toFixed(2)} $
                   </span>
                 </div>
                 <div className="flex items-center justify-between border-t border-(--base-200) pt-2">
                   <span className="text-(--base-600)">الإجمالي بعد الخصم</span>
                   <span className="font-semibold text-(--base-900)">
-                    {totalAfterDiscount.toFixed(3)} $
+                    {truncateToTwoDecimals(totalAfterDiscount).toFixed(2)} $
                   </span>
                 </div>
                 <div className="flex items-center justify-between border-t border-(--base-200) pt-2">
                   <span className="text-(--base-600)">المدفوع</span>
                   <span className="font-semibold text-green-600">
-                    {paidValue.toFixed(3)} $
+                    {truncateToTwoDecimals(paidValue).toFixed(2)} $
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-xl border-t border-(--base-200) pt-2">
                   <span className="text-(--base-600)">المتبقي</span>
                   <span className="font-semibold text-red-600">
-                    {remaining.toFixed(3)} $
+                    {truncateToTwoDecimals(remaining).toFixed(2)} $
                   </span>
                 </div>
               </div>

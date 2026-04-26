@@ -37,10 +37,16 @@ interface OrderProduct {
 }
 
 const PRICE_SCALE_FACTOR = 1000;
+const MONEY_SCALE_FACTOR = 100;
 
 const roundUpToThreeDecimals = (value: number) => {
   const normalized = Number(value.toFixed(9));
   return Math.ceil(normalized * PRICE_SCALE_FACTOR) / PRICE_SCALE_FACTOR;
+};
+
+const truncateToTwoDecimals = (value: number) => {
+  const normalized = Number(value.toFixed(9));
+  return Math.trunc(normalized * MONEY_SCALE_FACTOR) / MONEY_SCALE_FACTOR;
 };
 
 const formatUnitPriceFromTotal = (total: number, quantity: number) => {
@@ -483,19 +489,20 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
         header: "الإجمالي",
         cell: ({ row }) => {
           const currentTotal = parseFloat(row.price) * row.quantity;
+          const displayedTotal = truncateToTwoDecimals(currentTotal);
           return (
             <input
               key={`total-${row.id}-${row.price}-${row.quantity}`}
               type="number"
               min={0}
-              step="0.001"
+              step="0.01"
               className="w-28 px-2 py-1 border rounded text-sm font-medium"
-              defaultValue={currentTotal.toFixed(3)}
+              defaultValue={displayedTotal.toFixed(2)}
               disabled={isSubmitting || isLoadingProducts || isLoadingUser}
               onBlur={(e) => {
                 const index = products.findIndex((p) => p.id === row.id);
                 const value = parseFloat(e.target.value) || 0;
-                if (value >= 0 && Math.abs(value - currentTotal) > 0.0005) {
+                if (value >= 0 && Math.abs(value - displayedTotal) > 0.005) {
                   handleTotalChange(index, value);
                 }
               }}
@@ -711,31 +718,31 @@ const AddOrderForm = ({ onClose, onAdded }: AddNewOrderProp) => {
                 <div className="flex items-center justify-between">
                   <span className="text-(--base-600)">المجموع الفرعي</span>
                   <span className="font-semibold text-(--base-900)">
-                    {subtotal.toFixed(3)} $
+                    {truncateToTwoDecimals(subtotal).toFixed(2)} $
                   </span>
                 </div>
                 <div className="flex items-center justify-between border-t border-(--base-200) pt-2">
                   <span className="text-(--base-600)">الخصم</span>
                   <span className="font-semibold text-red-600">
-                    -{discountValue.toFixed(3)} $
+                    -{truncateToTwoDecimals(discountValue).toFixed(2)} $
                   </span>
                 </div>
                 <div className="flex items-center justify-between border-t border-(--base-200) pt-2">
                   <span className="text-(--base-600)">الإجمالي بعد الخصم</span>
                   <span className="font-semibold text-(--base-900)">
-                    {totalAfterDiscount.toFixed(3)} $
+                    {truncateToTwoDecimals(totalAfterDiscount).toFixed(2)} $
                   </span>
                 </div>
                 <div className="flex items-center justify-between border-t border-(--base-200) pt-2">
                   <span className="text-(--base-600)">المدفوع</span>
                   <span className="font-semibold text-green-600">
-                    {Math.max(paidValue, 0).toFixed(3)} $
+                    {truncateToTwoDecimals(Math.max(paidValue, 0)).toFixed(2)} $
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-xl border-t border-(--base-200) pt-2">
                   <span className="text-(--base-600)">المتبقي</span>
                   <span className="font-semibold text-red-600">
-                    {remaining.toFixed(3)} $
+                    {truncateToTwoDecimals(remaining).toFixed(2)} $
                   </span>
                 </div>
               </div>
